@@ -204,13 +204,15 @@
             <div class="winner"><span class="avatar navy">Y</span><p>あなた<small>2個発見</small></p><strong>+200</strong></div>
             <div><span class="avatar yellow">H</span><p>ハナ<small>1個発見</small></p><strong>+100</strong></div>
           </div>
-          <button class="button primary large" type="button" data-go="final">最終結果を見る <span>→</span></button>
+          <div class="result-actions"><button class="button share-button" id="share-result" type="button"><span aria-hidden="true">𝕏</span> 結果画像をシェア</button><button class="button primary" type="button" data-go="final">最終結果を見る <span>→</span></button></div><p class="share-note">対応スマホでは共有先にXを選ぶと画像付きで投稿できます。未対応環境では画像を保存して投稿画面を開きます。</p>
         </div>
-        <div class="answer-review">
-          <img src="assets/bakery.png" alt="正解位置を振り返るパン屋のイラスト">
-          <span class="review-ring a"><b>1</b><small>あなた</small></span>
-          <span class="review-ring b"><b>2</b><small>ハナ</small></span>
-          <span class="review-ring c"><b>3</b><small>あなた</small></span>
+        <div class="share-card-preview" aria-label="共有する結果画像のプレビュー">
+          <div class="share-card-title"><span>まちがいパーティー</span><strong>4つ全部発見！</strong></div>
+          <div class="share-image-pair">
+            <figure><figcaption>もとの絵</figcaption><img src="assets/bakery.png" alt="元のパン屋のイラスト"></figure>
+            <figure class="shared-changed"><figcaption>みんなの間違い</figcaption><img src="assets/bakery.png" alt="みんなの描画を重ねたパン屋のイラスト"><i class="share-mark one">★</i><i class="share-mark two">●</i><i class="share-mark three">▲</i></figure>
+          </div>
+          <div class="share-card-footer"><span>18秒でクリア</span><strong>#まちがいパーティー</strong></div>
         </div>
       </div>
     </section>

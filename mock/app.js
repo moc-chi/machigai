@@ -301,6 +301,77 @@ document.querySelector("#answer-image").addEventListener("click", (event) => {
   }
 });
 
+async function createResultImage() {
+  const image = document.querySelector(".share-image-pair img");
+  if (!image.complete) await image.decode();
+  const card = document.createElement("canvas");
+  card.width = 1600;
+  card.height = 900;
+  const cardContext = card.getContext("2d");
+  cardContext.fillStyle = "#17375e";
+  cardContext.fillRect(0, 0, card.width, card.height);
+  cardContext.fillStyle = "#ffffff";
+  cardContext.font = "800 54px sans-serif";
+  cardContext.fillText("まちがいパーティー", 70, 90);
+  cardContext.fillStyle = "#ffc94b";
+  cardContext.font = "800 64px sans-serif";
+  cardContext.fillText("4つ全部発見！", 1020, 90);
+  const imageY = 145;
+  const imageWidth = 710;
+  const imageHeight = 474;
+  cardContext.drawImage(image, 70, imageY, imageWidth, imageHeight);
+  cardContext.drawImage(image, 820, imageY, imageWidth, imageHeight);
+  cardContext.fillStyle = "rgba(23,55,94,.9)";
+  cardContext.fillRect(88, 165, 150, 42);
+  cardContext.fillStyle = "#ff6651";
+  cardContext.fillRect(838, 165, 220, 42);
+  cardContext.fillStyle = "#ffffff";
+  cardContext.font = "700 25px sans-serif";
+  cardContext.fillText("もとの絵", 108, 195);
+  cardContext.fillText("みんなの間違い", 858, 195);
+  cardContext.font = "800 74px sans-serif";
+  cardContext.fillStyle = "#ff6651";
+  cardContext.fillText("★", 1010, 350);
+  cardContext.fillStyle = "#17375e";
+  cardContext.fillText("●", 1390, 280);
+  cardContext.fillStyle = "#ffc94b";
+  cardContext.fillText("▲", 870, 560);
+  cardContext.fillStyle = "#ffffff";
+  cardContext.font = "800 38px sans-serif";
+  cardContext.fillText("18秒でクリア", 70, 735);
+  cardContext.fillStyle = "#ffc94b";
+  cardContext.fillText("#まちがいパーティー", 1120, 735);
+  cardContext.fillStyle = "rgba(255,255,255,.72)";
+  cardContext.font = "500 25px sans-serif";
+  cardContext.fillText("みんなが同じ絵に描いた間違いを、いちばん早く見つけよう！", 70, 810);
+  return new Promise((resolve) => card.toBlob(resolve, "image/png"));
+}
+
+function downloadResultImage(blob) {
+  const link = document.createElement("a");
+  link.href = URL.createObjectURL(blob);
+  link.download = "machigai-party-result.png";
+  link.click();
+  window.setTimeout(() => URL.revokeObjectURL(link.href), 1000);
+}
+
+document.querySelector("#share-result").addEventListener("click", async () => {
+  const blob = await createResultImage();
+  const file = new File([blob], "machigai-party-result.png", { type: "image/png" });
+  const shareText = "みんなで作った間違いを4つ全部発見！ #まちがいパーティー";
+  if (navigator.share && navigator.canShare?.({ files: [file] })) {
+    try {
+      await navigator.share({ title: "まちがいパーティー", text: shareText, url: location.origin + location.pathname, files: [file] });
+      return;
+    } catch (error) {
+      if (error.name === "AbortError") return;
+    }
+  }
+  downloadResultImage(blob);
+  const intent = `https://twitter.com/intent/tweet?text=${encodeURIComponent(shareText)}&url=${encodeURIComponent(location.origin + location.pathname)}`;
+  window.open(intent, "_blank", "noopener,noreferrer");
+  showToast("結果画像を保存しました。Xの投稿画面で添付してください");
+});
 window.addEventListener("resize", resizeCanvas);
 applyViewport();
 const initialScreen = location.hash.slice(1);
