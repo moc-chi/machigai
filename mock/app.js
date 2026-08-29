@@ -185,6 +185,42 @@ function applyViewport() {
   document.querySelector("#zoom-in").disabled = zoom >= 3;
 }
 
+function zoomDrawingAt(nextZoom, clientX, clientY) {
+  const previousZoom = zoom;
+  const boundedZoom = Math.max(1, Math.min(3, nextZoom));
+  const rect = stage.getBoundingClientRect();
+  const offsetX = clientX - rect.left - rect.width / 2;
+  const offsetY = clientY - rect.top - rect.height / 2;
+  const ratio = boundedZoom / previousZoom;
+  panX = offsetX - (offsetX - panX) * ratio;
+  panY = offsetY - (offsetY - panY) * ratio;
+  zoom = boundedZoom;
+  applyViewport();
+}
+
+let drawingPinch = null;
+function touchDistance(touches) { return Math.hypot(touches[0].clientX - touches[1].clientX, touches[0].clientY - touches[1].clientY); }
+function touchCenter(touches) { return { x: (touches[0].clientX + touches[1].clientX) / 2, y: (touches[0].clientY + touches[1].clientY) / 2 }; }
+
+stage.addEventListener("wheel", (event) => {
+  event.preventDefault();
+  zoomDrawingAt(zoom * Math.exp(-event.deltaY * .002), event.clientX, event.clientY);
+}, { passive: false });
+stage.addEventListener("touchstart", (event) => {
+  if (event.touches.length !== 2) return;
+  event.preventDefault();
+  drawing = false;
+  const center = touchCenter(event.touches);
+  drawingPinch = { distance: touchDistance(event.touches), zoom, centerX: center.x, centerY: center.y };
+}, { passive: false });
+stage.addEventListener("touchmove", (event) => {
+  if (!drawingPinch || event.touches.length !== 2) return;
+  event.preventDefault();
+  const center = touchCenter(event.touches);
+  zoomDrawingAt(drawingPinch.zoom * touchDistance(event.touches) / drawingPinch.distance, center.x, center.y);
+}, { passive: false });
+stage.addEventListener("touchend", (event) => { if (event.touches.length < 2) drawingPinch = null; });
+stage.addEventListener("touchcancel", () => { drawingPinch = null; });
 function setZoom(nextZoom) {
   zoom = Math.max(1, Math.min(3, Math.round(nextZoom * 4) / 4));
   applyViewport();
@@ -311,6 +347,41 @@ function setAnswerZoom(nextZoom) {
   applyAnswerView();
 }
 
+function zoomAnswerAt(nextZoom, clientX, clientY, viewport) {
+  const previousZoom = answerZoom;
+  const boundedZoom = Math.max(1, Math.min(3, nextZoom));
+  const rect = viewport.getBoundingClientRect();
+  const offsetX = clientX - rect.left - rect.width / 2;
+  const offsetY = clientY - rect.top - rect.height / 2;
+  const ratio = boundedZoom / previousZoom;
+  answerPanX = offsetX - (offsetX - answerPanX) * ratio;
+  answerPanY = offsetY - (offsetY - answerPanY) * ratio;
+  answerZoom = boundedZoom;
+  answerDragMoved = true;
+  applyAnswerView();
+}
+
+let answerPinch = null;
+answerViewports.forEach((viewport) => {
+  viewport.addEventListener("wheel", (event) => {
+    event.preventDefault();
+    zoomAnswerAt(answerZoom * Math.exp(-event.deltaY * .002), event.clientX, event.clientY, viewport);
+  }, { passive: false });
+  viewport.addEventListener("touchstart", (event) => {
+    if (event.touches.length !== 2) return;
+    event.preventDefault();
+    const center = touchCenter(event.touches);
+    answerPinch = { viewport, distance: touchDistance(event.touches), zoom: answerZoom, centerX: center.x, centerY: center.y };
+  }, { passive: false });
+  viewport.addEventListener("touchmove", (event) => {
+    if (!answerPinch || answerPinch.viewport !== viewport || event.touches.length !== 2) return;
+    event.preventDefault();
+    const center = touchCenter(event.touches);
+    zoomAnswerAt(answerPinch.zoom * touchDistance(event.touches) / answerPinch.distance, center.x, center.y, viewport);
+  }, { passive: false });
+  viewport.addEventListener("touchend", (event) => { if (event.touches.length < 2) answerPinch = null; });
+  viewport.addEventListener("touchcancel", () => { answerPinch = null; });
+});
 document.querySelector("#answer-zoom-in").addEventListener("click", () => setAnswerZoom(answerZoom + .25));
 document.querySelector("#answer-zoom-out").addEventListener("click", () => setAnswerZoom(answerZoom - .25));
 document.querySelector("#answer-reset-view").addEventListener("click", () => { answerZoom = 1; answerPanX = 0; answerPanY = 0; applyAnswerView(); });
