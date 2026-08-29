@@ -64,12 +64,12 @@
 type GameSettings = {
   minPlayers: number;              // 3
   maxPlayers: number;              // 10
-  stageCount: number;              // 未決定
+  stageCount: number;              // 初期値2
   differencesPerPlayer: number;    // 1
-  drawingSeconds: number;          // 未決定
-  answeringSeconds: number;        // 未決定
-  pointsForFinder: number;         // 未決定
-  pointsForUnfoundCreator: number; // 未決定
+  drawingSeconds: number;          // 初期値90
+  answeringSeconds: number;        // 初期値60
+  pointsForFinder: number;         // 初期値100
+  pointsForUnfoundCreator: number; // 初期値100
   missPenalty: number;             // 初期値0、要検討
   zoomMin: number;                 // 1
   zoomMax: number;                 // 3
