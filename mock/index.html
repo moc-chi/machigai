@@ -78,13 +78,13 @@
         <article class="panel member-panel">
           <div class="panel-title-row">
             <div><span class="panel-kicker">参加メンバー</span><h3>4 / 10人</h3></div>
-            <span class="live-dot">接続中</span>
+            <div class="lobby-tools"><span class="live-dot">接続中</span><button class="settings-button" id="open-game-settings" type="button"><span aria-hidden="true">⚙</span> ゲーム設定</button></div>
           </div>
           <ul class="member-list">
             <li><span class="avatar navy">Y</span><div><strong>あなた</strong><small>ホスト</small></div><span class="ready">準備OK</span></li>
-            <li><span class="avatar coral">M</span><div><strong>ミオ</strong><small>ゲスト</small></div><span class="ready">準備OK</span></li>
-            <li><span class="avatar mint">S</span><div><strong>ソウタ</strong><small>ゲスト</small></div><span class="ready">準備OK</span></li>
-            <li><span class="avatar yellow">H</span><div><strong>ハナ</strong><small>ゲスト</small></div><span class="waiting">確認中…</span></li>
+            <li data-member><span class="avatar coral">M</span><div><strong>ミオ</strong><small>ゲスト</small></div><span class="ready">準備OK</span><button class="kick-button" type="button" data-kick="ミオ" aria-label="ミオを部屋から退出させる">退出</button></li>
+            <li data-member><span class="avatar mint">S</span><div><strong>ソウタ</strong><small>ゲスト</small></div><span class="ready">準備OK</span><button class="kick-button" type="button" data-kick="ソウタ" aria-label="ソウタを部屋から退出させる">退出</button></li>
+            <li data-member><span class="avatar yellow">H</span><div><strong>ハナ</strong><small>ゲスト</small></div><span class="waiting">確認中…</span><button class="kick-button" type="button" data-kick="ハナ" aria-label="ハナを部屋から退出させる">退出</button></li>
           </ul>
           <div class="lobby-footer">
             <p>全員そろった？</p>
@@ -239,6 +239,24 @@
     <label>ニックネーム<input type="text" value="ゲスト" maxlength="12"></label>
     <label>招待コード<input type="text" value="7K3P" maxlength="6"></label>
     <button class="button primary full" type="button" data-join>参加する <span>→</span></button>
+  </dialog>
+
+  <dialog id="settings-dialog" class="settings-dialog">
+    <button class="dialog-close" type="button" data-close-settings aria-label="閉じる">×</button>
+    <span class="step-label">GAME SETTINGS</span>
+    <h2>ゲームの難易度</h2>
+    <p class="settings-lead">遊ぶメンバーに合わせて選んでください。</p>
+    <div class="difficulty-options" role="radiogroup" aria-label="ゲームの難易度">
+      <label><input type="radio" name="difficulty" value="easy"><span><b>やさしい</b><small>間違い 2個・回答 90秒</small></span></label>
+      <label class="selected"><input type="radio" name="difficulty" value="normal" checked><span><b>ふつう</b><small>間違い 3個・回答 60秒</small></span></label>
+      <label><input type="radio" name="difficulty" value="hard"><span><b>むずかしい</b><small>間違い 5個・回答 45秒</small></span></label>
+    </div>
+    <div class="setting-summary">
+      <div><small>間違い</small><strong id="setting-differences">3個</strong></div>
+      <div><small>作成時間</small><strong id="setting-create-time">90秒</strong></div>
+      <div><small>回答時間</small><strong id="setting-answer-time">60秒</strong></div>
+    </div>
+    <button class="button primary full" id="save-game-settings" type="button">この設定にする</button>
   </dialog>
 
   <aside id="screen-menu" class="screen-menu" aria-label="モック画面一覧">

@@ -24,6 +24,37 @@ document.querySelector("[data-open-join]").addEventListener("click", () => joinD
 document.querySelector("[data-close-dialog]").addEventListener("click", () => joinDialog.close());
 document.querySelector("[data-join]").addEventListener("click", () => { joinDialog.close(); goTo("lobby"); });
 
+const settingsDialog = document.querySelector("#settings-dialog");
+const difficultySettings = {
+  easy: { differences: "2個", createTime: "120秒", answerTime: "90秒" },
+  normal: { differences: "3個", createTime: "90秒", answerTime: "60秒" },
+  hard: { differences: "5個", createTime: "75秒", answerTime: "45秒" }
+};
+
+document.querySelector("#open-game-settings").addEventListener("click", () => settingsDialog.showModal());
+document.querySelector("[data-close-settings]").addEventListener("click", () => settingsDialog.close());
+document.querySelectorAll('input[name="difficulty"]').forEach((input) => input.addEventListener("change", () => {
+  document.querySelectorAll(".difficulty-options label").forEach((label) => label.classList.toggle("selected", label.contains(input)));
+  const setting = difficultySettings[input.value];
+  document.querySelector("#setting-differences").textContent = setting.differences;
+  document.querySelector("#setting-create-time").textContent = setting.createTime;
+  document.querySelector("#setting-answer-time").textContent = setting.answerTime;
+}));
+document.querySelector("#save-game-settings").addEventListener("click", () => {
+  const selected = document.querySelector('input[name="difficulty"]:checked');
+  settingsDialog.close();
+  showToast(`難易度を「${selected.closest("label").querySelector("b").textContent}」に設定しました`);
+});
+
+document.querySelectorAll("[data-kick]").forEach((button) => button.addEventListener("click", () => {
+  const memberName = button.dataset.kick;
+  if (!window.confirm(`${memberName}さんを部屋から退出させますか？`)) return;
+  button.closest("[data-member]").remove();
+  const count = document.querySelectorAll(".member-list li").length;
+  document.querySelector(".member-panel h3").textContent = `${count} / 10人`;
+  showToast(`${memberName}さんを部屋から退出させました`);
+}));
+
 function showToast(message) {
   toast.textContent = message;
   toast.classList.add("show");
