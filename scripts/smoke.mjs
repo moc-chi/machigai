@@ -1,4 +1,4 @@
-const base = "http://127.0.0.1:8787";
+const base = process.env.BASE_URL ?? "http://127.0.0.1:8787";`r`nconst socketBase = base.replace(/^http/, "ws");
 const post = async (path, body) => { const response = await fetch(base + path, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify(body) }); if (!response.ok) throw new Error(`${path}: ${response.status} ${await response.text()}`); return response.json(); };
 const host = await post("/api/v1/rooms", { nickname: "Host" });
 const two = await post("/api/v1/rooms/join", { nickname: "Two", roomCode: host.roomCode });
@@ -7,7 +7,7 @@ const users = [host, two, three];
 const states = new Map();
 const waitFor = (test, timeout = 5000) => new Promise((resolve, reject) => { const start = Date.now(); const timer = setInterval(() => { const result = test(); if (result) { clearInterval(timer); resolve(result); } else if (Date.now() - start > timeout) { clearInterval(timer); reject(new Error("Timed out")); } }, 20); });
 for (const user of users) {
-  const ws = new WebSocket(`ws://127.0.0.1:8787${user.socketUrl}`); user.ws = ws;
+  const ws = new WebSocket(`${socketBase}${user.socketUrl}`); user.ws = ws;
   ws.addEventListener("message", (event) => { const message = JSON.parse(event.data); if (message.type === "state.snapshot") states.set(user.participantId, message.payload); });
   await new Promise((resolve) => ws.addEventListener("open", resolve, { once: true }));
   ws.send(JSON.stringify({ type: "session.resume", commandId: crypto.randomUUID(), payload: { participantId: user.participantId, reconnectSecret: user.reconnectSecret } }));
