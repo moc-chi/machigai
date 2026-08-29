@@ -1,4 +1,5 @@
-const base = process.env.BASE_URL ?? "http://127.0.0.1:8787";`r`nconst socketBase = base.replace(/^http/, "ws");
+const base = process.env.BASE_URL ?? "http://127.0.0.1:8787";
+const socketBase = base.replace(/^http/, "ws");
 const post = async (path, body) => { const response = await fetch(base + path, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify(body) }); if (!response.ok) throw new Error(`${path}: ${response.status} ${await response.text()}`); return response.json(); };
 const host = await post("/api/v1/rooms", { nickname: "Host" });
 const two = await post("/api/v1/rooms/join", { nickname: "Two", roomCode: host.roomCode });
