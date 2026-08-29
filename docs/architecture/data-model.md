@@ -62,12 +62,12 @@
 
 ```ts
 type GameSettings = {
-  minPlayers: number;              // 3
+  minPlayers: number;              // 2
   maxPlayers: number;              // 10
   stageCount: number;              // 初期値2
-  differencesPerPlayer: number;    // 1
-  drawingSeconds: number;          // 初期値90
-  answeringSeconds: number;        // 初期値60
+  differencesPerPlayer: number;    // 初期値1、ホストが1〜5で設定
+  drawingSeconds: number;          // 初期値90、ロビーで変更可能
+  answeringSeconds: number;        // 初期値60、ロビーで変更可能
   pointsForFinder: number;         // 初期値100
   pointsForUnfoundCreator: number; // 初期値100
   missPenalty: number;             // 初期値0、要検討

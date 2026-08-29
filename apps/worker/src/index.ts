@@ -1,11 +1,11 @@
 import { DurableObject } from "cloudflare:workers";
-import { AnswerSchema, DifferenceSchema, GAME_DEFAULTS, NicknameSchema, RoomCodeSchema, type ClientCommand, type Difference, type Participant, type RoomSnapshot, type ServerEvent } from "@machigai/shared";
+import { AnswerSchema, DifferenceSchema, GAME_DEFAULTS, NicknameSchema, RoomCodeSchema, SettingsUpdateSchema, type ClientCommand, type Difference, type GameSettings, type Participant, type RoomSnapshot, type ServerEvent } from "@machigai/shared";
 import { buildHitRegion, hitTest, type HitRegion } from "@machigai/drawing";
 
 interface Env { ROOMS: DurableObjectNamespace<Room> }
 type InternalParticipant = Omit<Participant, "isHost"> & { secretHash: string; kicked: boolean; lastSeenAt: string };
 type InternalDifference = Difference & { hitRegion: HitRegion };
-type StoredRoom = { roomId: string; roomCode: string; phase: RoomSnapshot["phase"]; revision: number; gameNo: number; stageNo: number; imageUrl: string; phaseEndsAt?: string; hostTransferAt?: string; expiresAt?: string; hostId: string; participants: InternalParticipant[]; differences: InternalDifference[]; processedCommands: string[] };
+type StoredRoom = { roomId: string; roomCode: string; phase: RoomSnapshot["phase"]; revision: number; gameNo: number; stageNo: number; imageUrl: string; phaseEndsAt?: string; hostTransferAt?: string; expiresAt?: string; hostId: string; participants: InternalParticipant[]; differences: InternalDifference[]; processedCommands: string[]; settings: GameSettings };
 type SocketSession = { participantId?: string };
 
 const json = (data: unknown, status = 200) => new Response(JSON.stringify(data), { status, headers: { "content-type": "application/json; charset=utf-8", "access-control-allow-origin": "*" } });
@@ -38,7 +38,7 @@ export class Room extends DurableObject<Env> {
     const participantId = crypto.randomUUID();
     const reconnectSecret = secret();
     const participant: InternalParticipant = { id: participantId, nickname, joinOrder: 1, connected: false, ready: true, score: 0, confirmed: false, secretHash: await sha256(reconnectSecret), kicked: false, lastSeenAt: new Date().toISOString() };
-    this.room = { roomId: crypto.randomUUID(), roomCode, phase: "LOBBY", revision: 1, gameNo: 1, stageNo: 0, imageUrl: "/assets/bakery.png", hostId: participantId, participants: [participant], differences: [], processedCommands: [] };
+    this.room = { roomId: crypto.randomUUID(), roomCode, phase: "LOBBY", revision: 1, gameNo: 1, stageNo: 0, imageUrl: "/assets/bakery.png", hostId: participantId, participants: [participant], differences: [], processedCommands: [], settings: { ...GAME_DEFAULTS } };
     await this.persist();
     return json({ roomId: this.room.roomId, roomCode, participantId, reconnectSecret, socketUrl: `/api/v1/rooms/${roomCode}/socket` }, 201);
   }
@@ -82,6 +82,7 @@ export class Room extends DurableObject<Env> {
     if (!participant) return;
     try {
       if (command.type === "member.ready") participant.ready = Boolean(command.payload.ready);
+      else if (command.type === "settings.update") this.updateSettings(participantId, command.payload);
       else if (command.type === "game.start") this.startGame(participantId);
       else if (command.type === "member.kick") this.kick(participantId, command.payload.participantId);
       else if (command.type === "difference.confirm") this.confirmDifference(participantId, command.payload);
@@ -101,16 +102,17 @@ export class Room extends DurableObject<Env> {
     this.bump(); await this.persist(); this.broadcastSnapshots();
   }
 
+  private updateSettings(id: string, input: unknown) { this.requireHost(id); if (this.room!.phase !== "LOBBY") throw new Error("ロビーで設定してください"); const parsed = SettingsUpdateSchema.parse(input); this.room!.settings = { ...this.room!.settings, ...parsed }; this.room!.imageUrl = parsed.imageUrl; }
   private startGame(id: string) {
     this.requireHost(id); if (this.room!.phase !== "LOBBY") throw new Error("すでに開始しています");
-    if (this.activeParticipants().length < GAME_DEFAULTS.minPlayers) throw new Error("3人以上で開始できます");
-    this.room!.phase = "DRAWING"; this.room!.stageNo = 1; this.room!.differences = []; this.activeParticipants().forEach((p) => p.confirmed = false); this.setDeadline(GAME_DEFAULTS.drawingSeconds);
+    if (this.activeParticipants().length < GAME_DEFAULTS.minPlayers) throw new Error("2人以上で開始できます");
+    this.room!.phase = "DRAWING"; this.room!.stageNo = 1; this.room!.differences = []; this.activeParticipants().forEach((p) => p.confirmed = false); this.setDeadline(this.room!.settings.drawingSeconds);
   }
   private confirmDifference(id: string, input: unknown) {
     if (this.room!.phase !== "DRAWING") throw new Error("今は描画を確定できません");
     const participant = this.room!.participants.find((p) => p.id === id)!; if (participant.confirmed) throw new Error("確定済みです");
     const parsed = DifferenceSchema.parse(input); const hitRegion = buildHitRegion(parsed);
-    this.room!.differences.push({ id: crypto.randomUUID(), creatorId: id, strokes: parsed.strokes, hitRegion }); participant.confirmed = true;
+    this.room!.differences.push({ id: crypto.randomUUID(), creatorId: id, strokes: parsed.strokes, hitRegion }); participant.confirmed = this.room!.differences.filter((difference) => difference.creatorId === id).length >= this.room!.settings.differencesPerPlayer;
     if (this.activeParticipants().every((p) => p.confirmed)) this.beginAnswering();
   }
   private answer(socket: WebSocket, id: string, input: unknown) {
@@ -120,11 +122,11 @@ export class Room extends DurableObject<Env> {
     found.foundBy = id; found.foundAt = new Date().toISOString(); this.room!.participants.find((p) => p.id === id)!.score += GAME_DEFAULTS.pointsForFinder; this.send(socket, "answer.result", { result: "CORRECT", differenceId: found.id });
     if (this.room!.differences.every((d) => d.foundBy)) this.finishRound();
   }
-  private continueRound(id: string) { this.requireHost(id); if (this.room!.phase !== "ROUND_RESULT") throw new Error("今は次へ進めません"); if (this.room!.stageNo >= GAME_DEFAULTS.stageCount) { this.room!.phase = "FINAL_RESULT"; this.room!.expiresAt = new Date(Date.now() + 2 * 60 * 60 * 1000).toISOString(); this.scheduleNextAlarm(); } else { this.room!.stageNo += 1; this.room!.phase = "DRAWING"; this.room!.differences = []; this.activeParticipants().forEach((p) => p.confirmed = false); this.setDeadline(GAME_DEFAULTS.drawingSeconds); } }
+  private continueRound(id: string) { this.requireHost(id); if (this.room!.phase !== "ROUND_RESULT") throw new Error("今は次へ進めません"); if (this.room!.stageNo >= this.room!.settings.stageCount) { this.room!.phase = "FINAL_RESULT"; this.room!.expiresAt = new Date(Date.now() + 2 * 60 * 60 * 1000).toISOString(); this.scheduleNextAlarm(); } else { this.room!.stageNo += 1; this.room!.phase = "DRAWING"; this.room!.differences = []; this.activeParticipants().forEach((p) => p.confirmed = false); this.setDeadline(this.room!.settings.drawingSeconds); } }
   private rematch(id: string) { this.requireHost(id); if (this.room!.phase !== "FINAL_RESULT") throw new Error("再試合できません"); this.room!.gameNo += 1; this.room!.stageNo = 0; this.room!.phase = "LOBBY"; this.room!.differences = []; this.room!.participants.forEach((p) => { p.score = 0; p.confirmed = false; }); delete this.room!.phaseEndsAt; }
   private terminate(id: string) { this.requireHost(id); this.room!.phase = "ENDED"; delete this.room!.phaseEndsAt; }
   private kick(hostId: string, targetId: string) { this.requireHost(hostId); if (targetId === hostId) throw new Error("自分は退出させられません"); const target = this.room!.participants.find((p) => p.id === targetId); if (target) { target.kicked = true; target.connected = false; for (const [socket, session] of this.sockets) if (session.participantId === targetId) socket.close(4001, "kicked"); } }
-  private beginAnswering() { this.room!.phase = "ANSWERING"; this.setDeadline(GAME_DEFAULTS.answeringSeconds); }
+  private beginAnswering() { this.room!.phase = "ANSWERING"; this.setDeadline(this.room!.settings.answeringSeconds); }
   private finishRound() { for (const difference of this.room!.differences.filter((d) => !d.foundBy)) this.room!.participants.find((p) => p.id === difference.creatorId)!.score += GAME_DEFAULTS.pointsForUnfoundCreator; this.room!.phase = "ROUND_RESULT"; delete this.room!.phaseEndsAt; }
   private setDeadline(seconds: number) { this.room!.phaseEndsAt = new Date(Date.now() + seconds * 1000).toISOString(); this.scheduleNextAlarm(); }
   async alarm() {
@@ -147,7 +149,7 @@ export class Room extends DurableObject<Env> {
   private activeParticipants() { return this.room!.participants.filter((p) => !p.kicked); }
   private bump() { if (this.room) this.room.revision += 1; }
   private async persist() { if (this.room) await this.ctx.storage.put("room", this.room); }
-  private snapshot(selfId: string): RoomSnapshot { const r = this.room!; return { roomId: r.roomId, roomCode: r.roomCode, phase: r.phase, revision: r.revision, gameNo: r.gameNo, stageNo: r.stageNo, stageCount: GAME_DEFAULTS.stageCount, imageUrl: r.imageUrl, phaseEndsAt: r.phaseEndsAt, selfId, participants: r.participants.filter((p) => !p.kicked).map((p) => ({ id: p.id, nickname: p.nickname, joinOrder: p.joinOrder, connected: p.connected, ready: p.ready, score: p.score, confirmed: p.confirmed, isHost: p.id === r.hostId })), differences: r.phase === "DRAWING" ? [] : r.differences.map(({ hitRegion: _, ...d }) => d), settings: GAME_DEFAULTS }; }
+  private snapshot(selfId: string): RoomSnapshot { const r = this.room!; return { roomId: r.roomId, roomCode: r.roomCode, phase: r.phase, revision: r.revision, gameNo: r.gameNo, stageNo: r.stageNo, stageCount: this.room!.settings.stageCount, imageUrl: r.imageUrl, phaseEndsAt: r.phaseEndsAt, selfId, participants: r.participants.filter((p) => !p.kicked).map((p) => ({ id: p.id, nickname: p.nickname, joinOrder: p.joinOrder, connected: p.connected, ready: p.ready, score: p.score, confirmed: p.confirmed, isHost: p.id === r.hostId })), differences: r.phase === "DRAWING" ? [] : r.differences.map(({ hitRegion: _, ...d }) => d), settings: r.settings }; }
   private send(socket: WebSocket, type: ServerEvent["type"], payload: unknown) { if (socket.readyState === WebSocket.OPEN) socket.send(JSON.stringify({ type, revision: this.room?.revision ?? 0, payload })); }
   private broadcastSnapshots() { for (const [socket, session] of this.sockets) if (session.participantId) this.send(socket, "state.snapshot", this.snapshot(session.participantId)); }
 }
@@ -157,7 +159,7 @@ export default {
     if (request.method === "OPTIONS") return new Response(null, { headers: { "access-control-allow-origin": "*", "access-control-allow-headers": "content-type", "access-control-allow-methods": "GET,POST,OPTIONS" } });
     const url = new URL(request.url);
     if (url.pathname === "/api/v1/health") return json({ ok: true });
-    if (url.pathname === "/api/v1/images") return json([{ id: "bakery-001", src: "/assets/bakery.png", width: 1536, height: 1024, enabled: true }]);
+    if (url.pathname === "/api/v1/images") return json([{ id: "bakery-001", src: "/assets/bakery.png", width: 1536, height: 1024, enabled: true }, { id: "harbor-001", src: "/assets/harbor.png", width: 1456, height: 1092, enabled: true }, { id: "camping-001", src: "/assets/camping.png", width: 1456, height: 1092, enabled: true }, { id: "space-001", src: "/assets/space.png", width: 1456, height: 1092, enabled: true }, { id: "onsen-001", src: "/assets/onsen.png", width: 1456, height: 1092, enabled: true }]);
     if (url.pathname === "/api/v1/rooms" && request.method === "POST") {
       const roomCode = randomCode(); const id = env.ROOMS.idFromName(roomCode); return env.ROOMS.get(id).fetch(new Request(`${url.origin}/create`, { method: "POST", headers: request.headers, body: JSON.stringify({ ...(await request.json<object>()), roomCode }) }));
     }

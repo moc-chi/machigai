@@ -1,7 +1,7 @@
 import { z } from "zod";
 
 export const GAME_DEFAULTS = {
-  minPlayers: 3,
+  minPlayers: 2,
   maxPlayers: 10,
   stageCount: 2,
   differencesPerPlayer: 1,
@@ -11,7 +11,7 @@ export const GAME_DEFAULTS = {
   pointsForUnfoundCreator: 100,
   missPenalty: 0,
   zoomMin: 1,
-  zoomMax: 3,
+  zoomMax: 6,
 } as const;
 
 export const PointSchema = z.object({ x: z.number().min(0).max(1), y: z.number().min(0).max(1), pressure: z.number().min(0).max(1).optional(), t: z.number().nonnegative() });
@@ -27,12 +27,16 @@ export type DifferenceInput = z.infer<typeof DifferenceSchema>;
 export type Phase = "LOBBY" | "DRAWING" | "ANSWERING" | "ROUND_RESULT" | "FINAL_RESULT" | "ENDED";
 export type Participant = { id: string; nickname: string; joinOrder: number; connected: boolean; ready: boolean; score: number; isHost: boolean; confirmed: boolean };
 export type Difference = { id: string; creatorId: string; strokes: Stroke[]; foundBy?: string; foundAt?: string };
-export type RoomSnapshot = { roomId: string; roomCode: string; phase: Phase; revision: number; gameNo: number; stageNo: number; stageCount: number; imageUrl: string; phaseEndsAt?: string; selfId: string; participants: Participant[]; differences: Difference[]; settings: typeof GAME_DEFAULTS };
+export type GameSettings = { minPlayers: number; maxPlayers: number; stageCount: number; differencesPerPlayer: number; drawingSeconds: number; answeringSeconds: number; pointsForFinder: number; pointsForUnfoundCreator: number; missPenalty: number; zoomMin: number; zoomMax: number };
+export const SettingsUpdateSchema = z.object({ differencesPerPlayer: z.number().int().min(1).max(5), drawingSeconds: z.number().int().min(30).max(300), answeringSeconds: z.number().int().min(30).max(300), imageUrl: z.enum(["/assets/bakery.png", "/assets/harbor.png", "/assets/camping.png", "/assets/space.png", "/assets/onsen.png"]) });
+
+export type RoomSnapshot = { roomId: string; roomCode: string; phase: Phase; revision: number; gameNo: number; stageNo: number; stageCount: number; imageUrl: string; phaseEndsAt?: string; selfId: string; participants: Participant[]; differences: Difference[]; settings: GameSettings };
 
 export type ClientCommand =
   | { type: "session.resume"; commandId: string; payload: { participantId: string; reconnectSecret: string } }
   | { type: "member.ready"; commandId: string; payload: { ready: boolean } }
   | { type: "member.kick"; commandId: string; payload: { participantId: string } }
+  | { type: "settings.update"; commandId: string; payload: z.infer<typeof SettingsUpdateSchema> }
   | { type: "game.start"; commandId: string; payload: Record<string, never> }
   | { type: "difference.confirm"; commandId: string; payload: DifferenceInput }
   | { type: "answer.submit"; commandId: string; payload: { x: number; y: number } }
