@@ -1,0 +1,26 @@
+name: Notify Discord on push
+
+on:
+  push:
+
+permissions:
+  contents: read
+
+jobs:
+  notify:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Send push notification to Discord
+        env:
+          DISCORD_WEBHOOK_URL: ${{ secrets.DISCORD_WEBHOOK_URL }}
+        run: |
+          if [ -z "$DISCORD_WEBHOOK_URL" ]; then
+            echo "DISCORD_WEBHOOK_URL secret is not configured."
+            exit 1
+          fi
+
+          curl --fail-with-body \
+            --retry 3 \
+            --header "Content-Type: application/json" \
+            --data '{"username":"GitHub","content":"machigai リポジトリに新しい push がありました。\nhttps://github.com/moc-chi/machigai"}' \
+            "$DISCORD_WEBHOOK_URL"
