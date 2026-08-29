@@ -96,7 +96,7 @@
 
     <section class="screen game-screen" data-screen="create">
       <div class="game-topbar">
-        <div><span class="round-badge">ROUND 1 / 4</span><h2>あなたが問題をつくる番です</h2></div>
+        <div><span class="round-badge">STAGE 1 / 3</span><h2>みんなで同時に間違いをつくろう</h2></div>
         <div class="timer"><small>のこり</small><strong>01:24</strong></div>
       </div>
       <div class="create-layout">
@@ -136,16 +136,16 @@
           </div>
         </div>
         <aside class="side-panel create-side-panel">
-          <span class="panel-kicker">間違いをつくる</span>
-          <h3>1つずつ描いて<br>確定しよう</h3>
+          <span class="panel-kicker">全員同時に作成中</span>
+          <h3>同じ絵に1人1個<br>描き足そう</h3>
           <ol class="instruction-list">
             <li class="done"><span>1</span>画像に描き足す</li>
-            <li><span>2</span>「この間違いを確定」</li>
-            <li><span>3</span>3個できたら完成</li>
+            <li><span>2</span>自分の間違いを確定</li>
+            <li><span>3</span>みんなの完了を待つ</li>
           </ol>
-          <div class="difference-count"><span class="filled">1</span><span>2</span><span>3</span></div>
+          <div class="creator-progress"><span class="avatar navy">Y</span><span class="avatar coral">M</span><span class="avatar mint pending">S</span><span class="avatar yellow pending">H</span><small>2 / 4人 完了</small></div>
           <button class="button secondary full" id="confirm-difference" type="button">この間違いを確定</button>
-          <button class="button primary full" type="button" data-go="waiting">問題を完成する <span>→</span></button>
+          <button class="button primary full" type="button" data-go="waiting">描き終わった <span>→</span></button>
           <p class="muted tiny">モックでは自由に描画できます。正解範囲の判定方法は今後検討します。</p>
         </aside>
       </div>
@@ -154,18 +154,18 @@
     <section class="screen" data-screen="waiting">
       <div class="waiting-card">
         <div class="waiting-orbit"><span>✎</span></div>
-        <span class="step-label">ROUND 2 / 4</span>
-        <h2>ミオが問題をつくっています</h2>
-        <p>どんな間違いができるかな？<br>ほかの3人と一緒に待っています。</p>
+        <span class="step-label">EVERYONE IS DRAWING</span>
+        <h2>みんなの間違いを重ねています</h2>
+        <p>あなたの間違いは確定しました。<br>あと2人が描き終わるのを待っています。</p>
         <div class="mini-members"><span class="avatar navy">Y</span><span class="avatar mint">S</span><span class="avatar yellow">H</span></div>
-        <button class="button primary" type="button" data-go="play">回答画面を見る <span>→</span></button>
+        <button class="button primary" type="button" data-go="play">全員が描き終わる（モック） <span>→</span></button>
       </div>
     </section>
 
     <section class="screen game-screen" data-screen="play">
       <div class="game-topbar">
-        <div><span class="round-badge">ROUND 2 / 4</span><h2>間違いを見つけてタップ！</h2></div>
-        <div class="play-status"><span><b id="found-count">1</b> / 3 発見</span><div class="timer danger"><small>のこり</small><strong>00:42</strong></div></div>
+        <div><span class="round-badge">STAGE 1 / 3</span><h2>みんなが描いた間違いを見つけよう！</h2></div>
+        <div class="play-status"><span><b id="found-count">1</b> / 4 発見</span><div class="timer danger"><small>のこり</small><strong>00:42</strong></div></div>
       </div>
       <div class="compare-wrap">
         <div class="image-card">
@@ -178,7 +178,7 @@
           <button class="answer-image clickable" id="answer-image" type="button" aria-label="変更後の画像。間違いを探してタップ">
             <img src="assets/bakery.png" alt="変更後のパン屋のイラスト">
             <span class="mock-change change-one">★</span>
-            <span class="mock-change change-two">●</span>
+            <span class="mock-change change-two">●</span><span class="mock-change change-three">▲</span>
             <span class="found-marker">✓<small>ミオ</small></span>
             <span id="tap-feedback" class="tap-feedback"></span>
           </button>
@@ -189,7 +189,7 @@
         <div class="score-user"><span class="avatar coral">M</span><span>ミオ<strong>200</strong></span></div>
         <div class="score-user"><span class="avatar mint">S</span><span>ソウタ<strong>0</strong></span></div>
         <div class="score-user"><span class="avatar yellow">H</span><span>ハナ<strong>100</strong></span></div>
-        <button class="button primary compact" type="button" data-go="round-result">結果へ <span>→</span></button>
+        <p class="auto-transition">時間終了で自動的に結果へ</p>
       </div>
     </section>
 
@@ -197,8 +197,8 @@
       <div class="result-layout">
         <div class="result-copy">
           <span class="step-label">ROUND 2 RESULT</span>
-          <h2>3つ全部、<br><em>見つかりました！</em></h2>
-          <p>ミオの問題は18秒でクリアされました。</p>
+          <h2>4つ全部、<br><em>見つかりました！</em></h2>
+          <p>みんなで描いた間違いは18秒でクリアされました。</p>
           <div class="round-score-cards">
             <div><span class="avatar coral">M</span><p>ミオ<small>作成者</small></p><strong>+0</strong></div>
             <div class="winner"><span class="avatar navy">Y</span><p>あなた<small>2個発見</small></p><strong>+200</strong></div>
