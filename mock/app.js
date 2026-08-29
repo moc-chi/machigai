@@ -281,8 +281,75 @@ document.querySelector("#undo-drawing").addEventListener("click", () => {
 });
 document.querySelector("#confirm-difference").addEventListener("click", () => showToast("間違いを1つ確定しました（モック）"));
 
+let answerZoom = 1;
+let answerPanX = 0;
+let answerPanY = 0;
+let answerPanMode = false;
+let answerDrag = null;
+let answerDragMoved = false;
+const answerViewports = [...document.querySelectorAll(".answer-image")];
+const answerLayers = [...document.querySelectorAll(".answer-zoom-layer")];
+
+function clampAnswerPan() {
+  const viewport = answerViewports[0];
+  if (!viewport) return;
+  const maxX = viewport.clientWidth * (answerZoom - 1) / 2;
+  const maxY = viewport.clientHeight * (answerZoom - 1) / 2;
+  answerPanX = Math.max(-maxX, Math.min(maxX, answerPanX));
+  answerPanY = Math.max(-maxY, Math.min(maxY, answerPanY));
+}
+
+function applyAnswerView() {
+  clampAnswerPan();
+  answerLayers.forEach((layer) => { layer.style.transform = `translate(${answerPanX}px, ${answerPanY}px) scale(${answerZoom})`; });
+  document.querySelector("#answer-zoom-value").textContent = `${Math.round(answerZoom * 100)}%`;
+}
+
+function setAnswerZoom(nextZoom) {
+  answerZoom = Math.max(1, Math.min(3, nextZoom));
+  if (answerZoom === 1) { answerPanX = 0; answerPanY = 0; }
+  applyAnswerView();
+}
+
+document.querySelector("#answer-zoom-in").addEventListener("click", () => setAnswerZoom(answerZoom + .25));
+document.querySelector("#answer-zoom-out").addEventListener("click", () => setAnswerZoom(answerZoom - .25));
+document.querySelector("#answer-reset-view").addEventListener("click", () => { answerZoom = 1; answerPanX = 0; answerPanY = 0; applyAnswerView(); });
+document.querySelector("#answer-pan").addEventListener("click", (event) => {
+  answerPanMode = !answerPanMode;
+  event.currentTarget.classList.toggle("active", answerPanMode);
+  event.currentTarget.setAttribute("aria-pressed", String(answerPanMode));
+  answerViewports.forEach((viewport) => viewport.classList.toggle("panning", answerPanMode));
+});
+
+answerViewports.forEach((viewport) => {
+  viewport.addEventListener("pointerdown", (event) => {
+    if (!answerPanMode) return;
+    event.preventDefault();
+    answerDragMoved = false;
+    answerDrag = { id: event.pointerId, x: event.clientX, y: event.clientY, panX: answerPanX, panY: answerPanY };
+    viewport.setPointerCapture(event.pointerId);
+    viewport.classList.add("dragging");
+  });
+  viewport.addEventListener("pointermove", (event) => {
+    if (!answerDrag || answerDrag.id !== event.pointerId) return;
+    const dx = event.clientX - answerDrag.x;
+    const dy = event.clientY - answerDrag.y;
+    if (Math.abs(dx) + Math.abs(dy) > 4) answerDragMoved = true;
+    answerPanX = answerDrag.panX + dx;
+    answerPanY = answerDrag.panY + dy;
+    applyAnswerView();
+  });
+  const endAnswerDrag = (event) => {
+    if (!answerDrag || answerDrag.id !== event.pointerId) return;
+    answerDrag = null;
+    viewport.classList.remove("dragging");
+  };
+  viewport.addEventListener("pointerup", endAnswerDrag);
+  viewport.addEventListener("pointercancel", endAnswerDrag);
+});
 let answerClicks = 0;
 document.querySelector("#answer-image").addEventListener("click", (event) => {
+  if (answerPanMode || answerDragMoved) { answerDragMoved = false; return; }
   const target = event.currentTarget;
   const rect = target.getBoundingClientRect();
   const feedback = document.querySelector("#tap-feedback");
