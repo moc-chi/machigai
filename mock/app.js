@@ -301,6 +301,26 @@ document.querySelector("#answer-image").addEventListener("click", (event) => {
   }
 });
 
+const galleryDetails = {
+  all: { title: "みんなの間違い・全部入り", count: "4人分", label: "ALL PLAYERS" },
+  you: { title: "あなたが描いた間違い", count: "1個", label: "あなた" },
+  mio: { title: "ミオが描いた間違い", count: "1個", label: "ミオ" },
+  sota: { title: "ソウタが描いた間違い", count: "1個", label: "ソウタ" },
+  hana: { title: "ハナが描いた間違い", count: "1個", label: "ハナ" }
+};
+
+document.querySelectorAll("[data-gallery]").forEach((button) => button.addEventListener("click", () => {
+  const selected = button.dataset.gallery;
+  document.querySelectorAll("[data-gallery]").forEach((item) => {
+    const active = item === button;
+    item.classList.toggle("active", active);
+    item.setAttribute("aria-selected", String(active));
+  });
+  document.querySelectorAll("[data-drawing]").forEach((drawing) => drawing.classList.toggle("hidden", selected !== "all" && drawing.dataset.drawing !== selected));
+  document.querySelector("#gallery-title").textContent = galleryDetails[selected].title;
+  document.querySelector("#gallery-count").textContent = galleryDetails[selected].count;
+  document.querySelector("#gallery-label").textContent = galleryDetails[selected].label;
+}));
 async function createResultImage() {
   const image = document.querySelector(".share-image-pair img");
   if (!image.complete) await image.decode();

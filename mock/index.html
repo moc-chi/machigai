@@ -222,7 +222,25 @@
         <div class="confetti" aria-hidden="true">◆　●　▲　★　●　◆</div>
         <span class="step-label">FINAL RESULT</span>
         <h2>優勝は、あなた！</h2>
-        <p>4ラウンド、おつかれさまでした。</p>
+        <p>3ステージ、おつかれさまでした。</p>
+        <section class="player-gallery" aria-label="プレイヤー別の描画を見る">
+          <div class="gallery-heading"><div><span class="panel-kicker">DRAWING REVIEW</span><h3 id="gallery-title">みんなの間違い・全部入り</h3></div><span id="gallery-count">4人分</span></div>
+          <div class="gallery-tabs" role="tablist" aria-label="表示する描画">
+            <button class="active" type="button" role="tab" aria-selected="true" data-gallery="all">全部入り</button>
+            <button type="button" role="tab" aria-selected="false" data-gallery="you"><span class="mini-dot navy"></span>あなた</button>
+            <button type="button" role="tab" aria-selected="false" data-gallery="mio"><span class="mini-dot coral"></span>ミオ</button>
+            <button type="button" role="tab" aria-selected="false" data-gallery="sota"><span class="mini-dot mint"></span>ソウタ</button>
+            <button type="button" role="tab" aria-selected="false" data-gallery="hana"><span class="mini-dot yellow"></span>ハナ</button>
+          </div>
+          <div class="gallery-canvas">
+            <img src="assets/bakery.png" alt="選択したプレイヤーの描画を重ねたパン屋のイラスト">
+            <span class="player-drawing drawing-you" data-drawing="you">★</span>
+            <span class="player-drawing drawing-mio" data-drawing="mio">●</span>
+            <span class="player-drawing drawing-sota" data-drawing="sota">▲</span>
+            <span class="player-drawing drawing-hana" data-drawing="hana">◆</span>
+            <span class="gallery-player-label" id="gallery-label">ALL PLAYERS</span>
+          </div>
+        </section>
         <ol class="ranking">
           <li class="first"><span class="rank">1</span><span class="avatar navy">Y</span><div><strong>あなた</strong><small>発見 5こ・防衛 2こ</small></div><b>720</b></li>
           <li><span class="rank">2</span><span class="avatar coral">M</span><div><strong>ミオ</strong><small>発見 4こ・防衛 2こ</small></div><b>610</b></li>
