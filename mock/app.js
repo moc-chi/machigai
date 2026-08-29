@@ -1,0 +1,276 @@
+const screens = [...document.querySelectorAll("[data-screen]")];
+const roomChip = document.querySelector("#room-chip");
+const screenMenu = document.querySelector("#screen-menu");
+const toast = document.querySelector("#toast");
+
+function goTo(screenName) {
+  screens.forEach((screen) => screen.classList.toggle("active", screen.dataset.screen === screenName));
+  roomChip.classList.toggle("hidden", screenName === "home");
+  screenMenu.classList.remove("open");
+  window.scrollTo({ top: 0, behavior: "smooth" });
+  window.location.hash = screenName;
+  if (screenName === "create") requestAnimationFrame(resizeCanvas);
+}
+
+document.querySelectorAll("[data-go]").forEach((button) => {
+  button.addEventListener("click", () => goTo(button.dataset.go));
+});
+
+document.querySelector("#screen-menu-button").addEventListener("click", () => screenMenu.classList.toggle("open"));
+document.querySelector("#close-screen-menu").addEventListener("click", () => screenMenu.classList.remove("open"));
+
+const joinDialog = document.querySelector("#join-dialog");
+document.querySelector("[data-open-join]").addEventListener("click", () => joinDialog.showModal());
+document.querySelector("[data-close-dialog]").addEventListener("click", () => joinDialog.close());
+document.querySelector("[data-join]").addEventListener("click", () => { joinDialog.close(); goTo("lobby"); });
+
+function showToast(message) {
+  toast.textContent = message;
+  toast.classList.add("show");
+  window.setTimeout(() => toast.classList.remove("show"), 1800);
+}
+
+document.querySelector("#copy-link").addEventListener("click", async () => {
+  try { await navigator.clipboard.writeText(`${location.href.split("#")[0]}#lobby`); } catch (_) { /* Preview may block clipboard. */ }
+  showToast("招待リンクをコピーしました");
+});
+
+const canvas = document.querySelector("#drawing-canvas");
+const stage = document.querySelector("#drawing-stage");
+const zoomLayer = document.querySelector("#zoom-layer");
+const sourceImage = stage.querySelector("img");
+const brushCursor = document.querySelector("#brush-cursor");
+const ctx = canvas.getContext("2d");
+let drawing = false;
+let brushColor = "#ff4f3d";
+let brushSize = 8;
+let snapshots = [];
+let pickingColor = false;
+let zoom = 1;
+let panX = 0;
+let panY = 0;
+let panMode = false;
+let panStart = null;
+
+function resizeCanvas() {
+  const rect = stage.getBoundingClientRect();
+  if (!rect.width || !rect.height) return;
+  const previous = document.createElement("canvas");
+  previous.width = canvas.width;
+  previous.height = canvas.height;
+  if (canvas.width && canvas.height) previous.getContext("2d").drawImage(canvas, 0, 0);
+  canvas.width = Math.round(rect.width * devicePixelRatio);
+  canvas.height = Math.round(rect.height * devicePixelRatio);
+  canvas.style.width = `${rect.width}px`;
+  canvas.style.height = `${rect.height}px`;
+  ctx.setTransform(devicePixelRatio, 0, 0, devicePixelRatio, 0, 0);
+  if (previous.width) ctx.drawImage(previous, 0, 0, previous.width, previous.height, 0, 0, rect.width, rect.height);
+  ctx.lineCap = "round";
+  ctx.lineJoin = "round";
+}
+
+function point(event) {
+  const rect = canvas.getBoundingClientRect();
+  return {
+    x: (event.clientX - rect.left) * (canvas.clientWidth / rect.width),
+    y: (event.clientY - rect.top) * (canvas.clientHeight / rect.height)
+  };
+}
+
+canvas.addEventListener("pointerdown", (event) => {
+  if (panMode) {
+    panStart = { pointerX: event.clientX, pointerY: event.clientY, panX, panY };
+    canvas.setPointerCapture(event.pointerId);
+    stage.classList.add("dragging");
+    return;
+  }
+  if (pickingColor) {
+    pickColorFromImage(event);
+    return;
+  }
+  drawing = true;
+  canvas.setPointerCapture(event.pointerId);
+  snapshots.push(canvas.toDataURL());
+  const p = point(event);
+  ctx.beginPath();
+  ctx.moveTo(p.x, p.y);
+  document.querySelector(".draw-hint").style.opacity = "0";
+});
+
+canvas.addEventListener("pointermove", (event) => {
+  updateBrushCursor(event);
+  if (panStart) {
+    panX = panStart.panX + event.clientX - panStart.pointerX;
+    panY = panStart.panY + event.clientY - panStart.pointerY;
+    clampPan();
+    applyViewport();
+    return;
+  }
+  if (!drawing) return;
+  const p = point(event);
+  ctx.strokeStyle = brushColor;
+  ctx.lineWidth = brushSize;
+  ctx.lineTo(p.x, p.y);
+  ctx.stroke();
+});
+
+function stopPointerAction() {
+  drawing = false;
+  panStart = null;
+  stage.classList.remove("dragging");
+}
+
+canvas.addEventListener("pointerup", stopPointerAction);
+canvas.addEventListener("pointercancel", stopPointerAction);
+canvas.addEventListener("pointerenter", (event) => updateBrushCursor(event));
+canvas.addEventListener("pointerleave", () => brushCursor.classList.remove("visible"));
+
+function updateBrushCursor(event) {
+  if (panMode || pickingColor) return;
+  const stageRect = stage.getBoundingClientRect();
+  const visibleSize = Math.max(brushSize * zoom, 5);
+  brushCursor.style.left = `${event.clientX - stageRect.left}px`;
+  brushCursor.style.top = `${event.clientY - stageRect.top}px`;
+  brushCursor.style.width = `${visibleSize}px`;
+  brushCursor.style.height = `${visibleSize}px`;
+  brushCursor.style.setProperty("--brush-color", brushColor);
+  brushCursor.classList.toggle("tiny", brushSize * zoom < 5);
+  brushCursor.classList.add("visible");
+}
+
+function clampPan() {
+  if (zoom === 1) { panX = 0; panY = 0; return; }
+  const maxX = stage.clientWidth * (zoom - 1) / 2;
+  const maxY = stage.clientHeight * (zoom - 1) / 2;
+  panX = Math.max(-maxX, Math.min(maxX, panX));
+  panY = Math.max(-maxY, Math.min(maxY, panY));
+}
+
+function applyViewport() {
+  clampPan();
+  zoomLayer.style.transform = `translate3d(${panX}px, ${panY}px, 0) scale(${zoom})`;
+  document.querySelector("#zoom-level").textContent = `${Math.round(zoom * 100)}%`;
+  document.querySelector("#zoom-out").disabled = zoom <= 1;
+  document.querySelector("#zoom-in").disabled = zoom >= 3;
+}
+
+function setZoom(nextZoom) {
+  zoom = Math.max(1, Math.min(3, Math.round(nextZoom * 4) / 4));
+  applyViewport();
+}
+
+function setPanMode(active) {
+  panMode = active;
+  const button = document.querySelector("#pan-tool");
+  button.classList.toggle("active", active);
+  button.setAttribute("aria-pressed", String(active));
+  stage.classList.toggle("panning", active);
+  if (active) setPickingColor(false);
+}
+
+document.querySelector("#zoom-in").addEventListener("click", () => setZoom(zoom + .25));
+document.querySelector("#zoom-out").addEventListener("click", () => setZoom(zoom - .25));
+document.querySelector("#pan-tool").addEventListener("click", () => {
+  setPanMode(!panMode);
+  if (panMode && zoom === 1) showToast("拡大してからドラッグすると位置を動かせます");
+});
+document.querySelector("#reset-view").addEventListener("click", () => {
+  zoom = 1; panX = 0; panY = 0; setPanMode(false); applyViewport();
+});
+
+function selectColor(color, matchingButton = null) {
+  brushColor = color;
+  brushCursor.style.setProperty("--brush-color", color);
+  document.querySelector("#custom-color").value = color;
+  document.querySelectorAll("[data-color]").forEach((item) => item.classList.toggle("active", item === matchingButton));
+}
+
+document.querySelectorAll("[data-color]").forEach((button) => button.addEventListener("click", () => selectColor(button.dataset.color, button)));
+document.querySelector("#custom-color").addEventListener("input", (event) => selectColor(event.target.value));
+
+function setPickingColor(active) {
+  pickingColor = active;
+  if (active) setPanMode(false);
+  stage.classList.toggle("picking", active);
+  const button = document.querySelector("#eyedropper");
+  button.classList.toggle("active", active);
+  button.setAttribute("aria-pressed", String(active));
+}
+
+function componentToHex(value) {
+  return value.toString(16).padStart(2, "0");
+}
+
+function pickColorFromImage(event) {
+  const rect = stage.getBoundingClientRect();
+  const scale = Math.max(rect.width / sourceImage.naturalWidth, rect.height / sourceImage.naturalHeight);
+  const renderedWidth = sourceImage.naturalWidth * scale;
+  const renderedHeight = sourceImage.naturalHeight * scale;
+  const offsetX = (renderedWidth - rect.width) / 2;
+  const offsetY = (renderedHeight - rect.height) / 2;
+  const sourceX = Math.max(0, Math.min(sourceImage.naturalWidth - 1, Math.floor((event.clientX - rect.left + offsetX) / scale)));
+  const sourceY = Math.max(0, Math.min(sourceImage.naturalHeight - 1, Math.floor((event.clientY - rect.top + offsetY) / scale)));
+  const sampler = document.createElement("canvas");
+  sampler.width = sourceImage.naturalWidth;
+  sampler.height = sourceImage.naturalHeight;
+  const samplerContext = sampler.getContext("2d", { willReadFrequently: true });
+  samplerContext.drawImage(sourceImage, 0, 0);
+  const [red, green, blue] = samplerContext.getImageData(sourceX, sourceY, 1, 1).data;
+  const color = `#${componentToHex(red)}${componentToHex(green)}${componentToHex(blue)}`;
+  selectColor(color);
+  setPickingColor(false);
+  showToast(`色を取得しました ${color.toUpperCase()}`);
+}
+
+document.querySelector("#eyedropper").addEventListener("click", async () => {
+  if (window.EyeDropper) {
+    try {
+      const result = await new EyeDropper().open();
+      selectColor(result.sRGBHex);
+      showToast(`色を取得しました ${result.sRGBHex.toUpperCase()}`);
+      return;
+    } catch (_) {
+      return;
+    }
+  }
+  setPickingColor(!pickingColor);
+  if (pickingColor) showToast("画像の取りたい色をタップしてください");
+});
+document.querySelector("#brush-size").addEventListener("input", (event) => {
+  brushSize = Number(event.target.value);
+  document.querySelector("#brush-size-value").textContent = `${brushSize}px`;
+});
+document.querySelector("#clear-drawing").addEventListener("click", () => { snapshots.push(canvas.toDataURL()); ctx.clearRect(0, 0, canvas.width, canvas.height); });
+document.querySelector("#undo-drawing").addEventListener("click", () => {
+  const snapshot = snapshots.pop();
+  if (!snapshot) return;
+  const image = new Image();
+  image.onload = () => { ctx.clearRect(0, 0, canvas.width, canvas.height); ctx.drawImage(image, 0, 0, canvas.width / devicePixelRatio, canvas.height / devicePixelRatio); };
+  image.src = snapshot;
+});
+document.querySelector("#confirm-difference").addEventListener("click", () => showToast("間違いを1つ確定しました（モック）"));
+
+let answerClicks = 0;
+document.querySelector("#answer-image").addEventListener("click", (event) => {
+  const target = event.currentTarget;
+  const rect = target.getBoundingClientRect();
+  const feedback = document.querySelector("#tap-feedback");
+  feedback.style.left = `${event.clientX - rect.left}px`;
+  feedback.style.top = `${event.clientY - rect.top}px`;
+  feedback.classList.remove("show");
+  void feedback.offsetWidth;
+  feedback.classList.add("show");
+  answerClicks += 1;
+  if (answerClicks === 1) {
+    document.querySelector("#found-count").textContent = "2";
+    document.querySelector("#your-score").textContent = "200";
+    showToast("正解！あなたが一番乗り +100");
+  } else {
+    showToast("そこは違うみたい…");
+  }
+});
+
+window.addEventListener("resize", resizeCanvas);
+applyViewport();
+const initialScreen = location.hash.slice(1);
+if (screens.some((screen) => screen.dataset.screen === initialScreen)) goTo(initialScreen);

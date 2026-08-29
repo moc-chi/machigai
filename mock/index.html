@@ -1,0 +1,258 @@
+<!doctype html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="theme-color" content="#ff6651">
+  <meta name="description" content="みんなで作って競う、リアルタイム間違い探しゲームの画面モック">
+  <title>まちがいパーティー｜画面モック</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=M+PLUS+Rounded+1c:wght@500;700;800&family=Zen+Maru+Gothic:wght@500;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+  <div class="prototype-note">
+    <span>DISCUSSION MOCK</span>
+    <p>画面遷移とゲーム体験を話し合うためのモックです</p>
+    <button id="screen-menu-button" class="text-button" type="button">画面一覧</button>
+  </div>
+
+  <header class="site-header">
+    <button class="brand" type="button" data-go="home" aria-label="トップへ戻る">
+      <span class="brand-mark">?</span>
+      <span>まちがい<br><strong>パーティー</strong></span>
+    </button>
+    <div class="room-chip hidden" id="room-chip">ROOM <strong>7K3P</strong></div>
+  </header>
+
+  <main>
+    <section class="screen active" data-screen="home">
+      <div class="home-grid">
+        <div class="hero-copy">
+          <span class="eyebrow">3〜10人でリアルタイム対戦</span>
+          <h1>描いて、見つけて、<br><em>いちばん乗り！</em></h1>
+          <p>友だちが描き足した「まちがい」を、誰より早く見つけよう。登録なしですぐ遊べます。</p>
+          <div class="home-actions">
+            <button class="button primary large" type="button" data-go="lobby">部屋をつくる <span>→</span></button>
+            <button class="button secondary large" type="button" data-open-join>部屋に参加する</button>
+          </div>
+          <div class="trust-row">
+            <span>✓ アプリ不要</span><span>✓ 登録不要</span><span>✓ スマホ対応</span>
+          </div>
+        </div>
+        <div class="hero-game-card" aria-label="ゲームイメージ">
+          <div class="hero-image-wrap">
+            <img src="assets/bakery.png" alt="動物たちが集まるパン屋のイラスト">
+            <span class="found-ring ring-one">✓</span>
+            <span class="found-ring ring-two">✓</span>
+            <span class="tap-pointer">☝</span>
+          </div>
+          <div class="hero-score-row">
+            <span class="avatar coral">M</span>
+            <p><strong>ミオが発見！</strong><br>のこり 1こ</p>
+            <strong class="points">+100</strong>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <section class="screen" data-screen="lobby">
+      <div class="page-heading compact-heading">
+        <span class="step-label">WAITING ROOM</span>
+        <h2>みんなが集まるのを待っています</h2>
+        <p>3人以上そろったら、ホストがゲームを始められます。</p>
+      </div>
+
+      <div class="lobby-layout">
+        <article class="panel invite-panel">
+          <span class="panel-kicker">招待コード</span>
+          <div class="room-code">7K3P</div>
+          <button class="button primary full" type="button" id="copy-link">招待リンクをコピー</button>
+          <div class="qr-placeholder" aria-label="QRコードのプレースホルダー">
+            <div></div><div></div><div></div><div></div><div></div><div></div><div></div><div></div><div></div>
+          </div>
+          <p class="muted small">リンクまたはQRコードを友だちに送ろう</p>
+        </article>
+
+        <article class="panel member-panel">
+          <div class="panel-title-row">
+            <div><span class="panel-kicker">参加メンバー</span><h3>4 / 10人</h3></div>
+            <span class="live-dot">接続中</span>
+          </div>
+          <ul class="member-list">
+            <li><span class="avatar navy">Y</span><div><strong>あなた</strong><small>ホスト</small></div><span class="ready">準備OK</span></li>
+            <li><span class="avatar coral">M</span><div><strong>ミオ</strong><small>ゲスト</small></div><span class="ready">準備OK</span></li>
+            <li><span class="avatar mint">S</span><div><strong>ソウタ</strong><small>ゲスト</small></div><span class="ready">準備OK</span></li>
+            <li><span class="avatar yellow">H</span><div><strong>ハナ</strong><small>ゲスト</small></div><span class="waiting">確認中…</span></li>
+          </ul>
+          <div class="lobby-footer">
+            <p>全員そろった？</p>
+            <button class="button primary" type="button" data-go="create">ゲームをはじめる <span>→</span></button>
+          </div>
+        </article>
+      </div>
+    </section>
+
+    <section class="screen game-screen" data-screen="create">
+      <div class="game-topbar">
+        <div><span class="round-badge">ROUND 1 / 4</span><h2>あなたが問題をつくる番です</h2></div>
+        <div class="timer"><small>のこり</small><strong>01:24</strong></div>
+      </div>
+      <div class="create-layout">
+        <div class="canvas-panel">
+          <div class="canvas-toolbar">
+            <div class="tool-group color-tools">
+              <span>色</span>
+              <button class="color-dot active" data-color="#ff4f3d" style="--dot:#ff4f3d" aria-label="赤"></button>
+              <button class="color-dot" data-color="#ff9f1c" style="--dot:#ff9f1c" aria-label="オレンジ"></button>
+              <button class="color-dot" data-color="#ffd43b" style="--dot:#ffd43b" aria-label="黄"></button>
+              <button class="color-dot" data-color="#2c9c80" style="--dot:#2c9c80" aria-label="緑"></button>
+              <button class="color-dot" data-color="#32a8dd" style="--dot:#32a8dd" aria-label="水色"></button>
+              <button class="color-dot" data-color="#17375e" style="--dot:#17375e" aria-label="紺"></button>
+              <button class="color-dot" data-color="#9b5de5" style="--dot:#9b5de5" aria-label="紫"></button>
+              <button class="color-dot" data-color="#ffffff" style="--dot:#ffffff" aria-label="白"></button>
+              <label class="custom-color" aria-label="自由な色を選ぶ"><input id="custom-color" type="color" value="#ff4f3d"><span>＋</span></label>
+              <button class="eyedropper-button" id="eyedropper" type="button" aria-pressed="false" title="画像から色を選ぶ"><span aria-hidden="true">⌾</span> スポイト</button>
+            </div>
+            <div class="tool-group brush-size-tools"><span>太さ</span><input id="brush-size" type="range" min="1" max="36" value="8" aria-label="ペンの太さ"><output id="brush-size-value" for="brush-size">8px</output></div>
+            <div class="tool-group zoom-tools" aria-label="キャンバスの拡大縮小">
+              <button class="zoom-button" id="zoom-out" type="button" aria-label="縮小">−</button>
+              <output id="zoom-level" aria-live="polite">100%</output>
+              <button class="zoom-button" id="zoom-in" type="button" aria-label="拡大">＋</button>
+              <button class="pan-button" id="pan-tool" type="button" aria-pressed="false"><span aria-hidden="true">✋</span> 移動</button>
+              <button class="reset-view-button" id="reset-view" type="button">全体</button>
+            </div>
+            <button class="icon-button" id="undo-drawing" type="button">↶ もどす</button>
+            <button class="icon-button" id="clear-drawing" type="button">消す</button>
+          </div>
+          <div class="drawing-stage" id="drawing-stage">
+            <div class="zoom-layer" id="zoom-layer">
+              <img src="assets/bakery.png" alt="問題作成用のパン屋のイラスト">
+              <canvas id="drawing-canvas"></canvas>
+            </div>
+            <span class="brush-cursor" id="brush-cursor" aria-hidden="true"></span>
+            <span class="draw-hint" id="draw-hint">ここに描いてみよう</span>
+          </div>
+        </div>
+        <aside class="side-panel create-side-panel">
+          <span class="panel-kicker">間違いをつくる</span>
+          <h3>1つずつ描いて<br>確定しよう</h3>
+          <ol class="instruction-list">
+            <li class="done"><span>1</span>画像に描き足す</li>
+            <li><span>2</span>「この間違いを確定」</li>
+            <li><span>3</span>3個できたら完成</li>
+          </ol>
+          <div class="difference-count"><span class="filled">1</span><span>2</span><span>3</span></div>
+          <button class="button secondary full" id="confirm-difference" type="button">この間違いを確定</button>
+          <button class="button primary full" type="button" data-go="waiting">問題を完成する <span>→</span></button>
+          <p class="muted tiny">モックでは自由に描画できます。正解範囲の判定方法は今後検討します。</p>
+        </aside>
+      </div>
+    </section>
+
+    <section class="screen" data-screen="waiting">
+      <div class="waiting-card">
+        <div class="waiting-orbit"><span>✎</span></div>
+        <span class="step-label">ROUND 2 / 4</span>
+        <h2>ミオが問題をつくっています</h2>
+        <p>どんな間違いができるかな？<br>ほかの3人と一緒に待っています。</p>
+        <div class="mini-members"><span class="avatar navy">Y</span><span class="avatar mint">S</span><span class="avatar yellow">H</span></div>
+        <button class="button primary" type="button" data-go="play">回答画面を見る <span>→</span></button>
+      </div>
+    </section>
+
+    <section class="screen game-screen" data-screen="play">
+      <div class="game-topbar">
+        <div><span class="round-badge">ROUND 2 / 4</span><h2>間違いを見つけてタップ！</h2></div>
+        <div class="play-status"><span><b id="found-count">1</b> / 3 発見</span><div class="timer danger"><small>のこり</small><strong>00:42</strong></div></div>
+      </div>
+      <div class="compare-wrap">
+        <div class="image-card">
+          <span class="image-label">もとの絵</span>
+          <div class="answer-image"><img src="assets/bakery.png" alt="元のパン屋のイラスト"></div>
+        </div>
+        <div class="versus">VS</div>
+        <div class="image-card active-card">
+          <span class="image-label changed">変わった絵</span>
+          <button class="answer-image clickable" id="answer-image" type="button" aria-label="変更後の画像。間違いを探してタップ">
+            <img src="assets/bakery.png" alt="変更後のパン屋のイラスト">
+            <span class="mock-change change-one">★</span>
+            <span class="mock-change change-two">●</span>
+            <span class="found-marker">✓<small>ミオ</small></span>
+            <span id="tap-feedback" class="tap-feedback"></span>
+          </button>
+        </div>
+      </div>
+      <div class="score-strip">
+        <div class="score-user current"><span class="avatar navy">Y</span><span>あなた<strong id="your-score">100</strong></span></div>
+        <div class="score-user"><span class="avatar coral">M</span><span>ミオ<strong>200</strong></span></div>
+        <div class="score-user"><span class="avatar mint">S</span><span>ソウタ<strong>0</strong></span></div>
+        <div class="score-user"><span class="avatar yellow">H</span><span>ハナ<strong>100</strong></span></div>
+        <button class="button primary compact" type="button" data-go="round-result">結果へ <span>→</span></button>
+      </div>
+    </section>
+
+    <section class="screen" data-screen="round-result">
+      <div class="result-layout">
+        <div class="result-copy">
+          <span class="step-label">ROUND 2 RESULT</span>
+          <h2>3つ全部、<br><em>見つかりました！</em></h2>
+          <p>ミオの問題は18秒でクリアされました。</p>
+          <div class="round-score-cards">
+            <div><span class="avatar coral">M</span><p>ミオ<small>作成者</small></p><strong>+0</strong></div>
+            <div class="winner"><span class="avatar navy">Y</span><p>あなた<small>2個発見</small></p><strong>+200</strong></div>
+            <div><span class="avatar yellow">H</span><p>ハナ<small>1個発見</small></p><strong>+100</strong></div>
+          </div>
+          <button class="button primary large" type="button" data-go="final">最終結果を見る <span>→</span></button>
+        </div>
+        <div class="answer-review">
+          <img src="assets/bakery.png" alt="正解位置を振り返るパン屋のイラスト">
+          <span class="review-ring a"><b>1</b><small>あなた</small></span>
+          <span class="review-ring b"><b>2</b><small>ハナ</small></span>
+          <span class="review-ring c"><b>3</b><small>あなた</small></span>
+        </div>
+      </div>
+    </section>
+
+    <section class="screen" data-screen="final">
+      <div class="final-card">
+        <div class="confetti" aria-hidden="true">◆　●　▲　★　●　◆</div>
+        <span class="step-label">FINAL RESULT</span>
+        <h2>優勝は、あなた！</h2>
+        <p>4ラウンド、おつかれさまでした。</p>
+        <ol class="ranking">
+          <li class="first"><span class="rank">1</span><span class="avatar navy">Y</span><div><strong>あなた</strong><small>発見 5こ・防衛 2こ</small></div><b>720</b></li>
+          <li><span class="rank">2</span><span class="avatar coral">M</span><div><strong>ミオ</strong><small>発見 4こ・防衛 2こ</small></div><b>610</b></li>
+          <li><span class="rank">3</span><span class="avatar mint">S</span><div><strong>ソウタ</strong><small>発見 3こ・防衛 2こ</small></div><b>480</b></li>
+          <li><span class="rank">4</span><span class="avatar yellow">H</span><div><strong>ハナ</strong><small>発見 2こ・防衛 1こ</small></div><b>320</b></li>
+        </ol>
+        <div class="final-actions"><button class="button primary" type="button" data-go="lobby">もう一度あそぶ</button><button class="button secondary" type="button" data-go="home">トップへ戻る</button></div>
+      </div>
+    </section>
+  </main>
+
+  <dialog id="join-dialog">
+    <button class="dialog-close" type="button" data-close-dialog aria-label="閉じる">×</button>
+    <span class="step-label">JOIN A ROOM</span>
+    <h2>部屋に参加する</h2>
+    <label>ニックネーム<input type="text" value="ゲスト" maxlength="12"></label>
+    <label>招待コード<input type="text" value="7K3P" maxlength="6"></label>
+    <button class="button primary full" type="button" data-join>参加する <span>→</span></button>
+  </dialog>
+
+  <aside id="screen-menu" class="screen-menu" aria-label="モック画面一覧">
+    <div><strong>画面を選ぶ</strong><button id="close-screen-menu" type="button" aria-label="閉じる">×</button></div>
+    <button type="button" data-go="home">01 トップ</button>
+    <button type="button" data-go="lobby">02 ロビー</button>
+    <button type="button" data-go="create">03 問題作成</button>
+    <button type="button" data-go="waiting">04 作成待機</button>
+    <button type="button" data-go="play">05 回答</button>
+    <button type="button" data-go="round-result">06 ラウンド結果</button>
+    <button type="button" data-go="final">07 最終結果</button>
+  </aside>
+
+  <div id="toast" class="toast" role="status"></div>
+  <script src="app.js"></script>
+</body>
+</html>
