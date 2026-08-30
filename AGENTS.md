@@ -2,7 +2,7 @@
 
 ## Project purpose
 
-Build a mobile-first, real-time spot-the-difference party game for 3–10 invited friends. All participants draw one difference on the same source illustration, then everyone races to find the combined differences.
+Build a mobile-first, real-time spot-the-difference party game for 2–10 invited friends. All participants draw 1–5 differences on the same source illustration, then everyone races to find the combined differences.
 
 ## Source of truth
 
@@ -42,5 +42,7 @@ If documents conflict, requirements take precedence. Do not silently resolve pro
 Before declaring work complete, run the available type check, unit tests, integration tests, production build, and relevant multi-browser test. Report any check that could not run and why.
 
 ## Deployment authority
+
+For this project, publishing normally means a temporary Cloudflare preview, not production. Read `docs/architecture/deployment.md` section 8 first. Reuse an unexpired temporary account; explain and obtain explicit consent before accepting terms to create a new one. Never commit credentials or account claim URLs.
 
 AI may create branches, issues, tests, pull requests, and preview deployments. Production deployment requires explicit human approval. Any new paid service or expansion of collected user data also requires explicit approval.

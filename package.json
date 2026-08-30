@@ -1,0 +1,22 @@
+{
+  "name": "machigai-party",
+  "private": true,
+  "workspaces": [
+    "apps/*",
+    "packages/*"
+  ],
+  "scripts": {
+    "dev": "concurrently -n web,worker -c cyan,magenta \"npm run dev -w @machigai/web\" \"npm run dev -w @machigai/worker\"",
+    "build": "npm run build -w @machigai/shared && npm run build -w @machigai/drawing && npm run build -w @machigai/web && npm run build -w @machigai/worker",
+    "typecheck": "npm run typecheck --workspaces --if-present",
+    "test": "npm run test --workspaces --if-present",
+    "smoke": "node scripts/smoke.mjs",
+    "test:e2e": "playwright test"
+  },
+  "devDependencies": {
+    "@playwright/test": "^1.62.1",
+    "concurrently": "^9.2.1",
+    "typescript": "^5.9.2",
+    "vitest": "^3.2.4"
+  }
+}

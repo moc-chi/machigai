@@ -62,15 +62,16 @@
 
 ```ts
 type GameSettings = {
-  minPlayers: number;              // 3
+  minPlayers: number;              // 2
   maxPlayers: number;              // 10
-  stageCount: number;              // 未決定
-  differencesPerPlayer: number;    // 1
-  drawingSeconds: number;          // 未決定
-  answeringSeconds: number;        // 未決定
-  pointsForFinder: number;         // 未決定
-  pointsForUnfoundCreator: number; // 未決定
-  missPenalty: number;             // 初期値0、要検討
+  stageCount: number;              // 初期値2
+  differencesPerPlayer: number;    // 初期値1、ホストが1〜5で設定
+  drawingSeconds: number;          // 初期値90、ロビーで変更可能
+  answeringSeconds: number;        // 初期値60、ロビーで変更可能
+  pointsForFinder: number;         // 初期値100
+  pointsForUnfoundCreator: number; // 初期値100
+  missPenalty: number;             // 20点、得点の下限0
+  missCooldownSeconds: number;     // 3秒、サーバーが再回答を制限
   zoomMin: number;                 // 1
   zoomMax: number;                 // 3
 };
