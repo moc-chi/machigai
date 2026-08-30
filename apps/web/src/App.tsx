@@ -6,6 +6,7 @@ import { Board, initialView, type Tool } from "./Board";
 import type { View } from "@machigai/drawing";
 import { LANGUAGES, LanguageContext, errorKey, useText, type Language } from "./i18n";
 import { downloadImage, makeShareImage } from "./share";
+import { RulesDialog } from "./RulesDialog";
 type Session = CreateRoomResponse & { nickname: string };
 type Send = (type: ClientCommand["type"], payload?: unknown) => Promise<void>;
 const SESSION_KEY = "machigai-session";
@@ -16,6 +17,7 @@ async function api(path:string,body:unknown):Promise<CreateRoomResponse>{
 function useRoom(session:Session|null){
   const [snapshot,setSnapshot]=useState<RoomSnapshot|null>(null);const snapshotRef=useRef(snapshot);snapshotRef.current=snapshot;
   const [error,setError]=useState("");const [feedback,setFeedback]=useState<AnswerFeedback|null>(null);
+  const [errorVersion,setErrorVersion]=useState(0);
   const [pendingCount,setPendingCount]=useState(0);const socket=useRef<WebSocket|null>(null);
   const pending=useRef(new Map<string,{resolve:()=>void;reject:(error:Error)=>void;timer:number}>());
   useEffect(()=>{
@@ -32,6 +34,7 @@ function useRoom(session:Session|null){
         if(message.type==="answer.result")setFeedback(message.payload);
         if(message.type==="error"){
           setError(message.payload.code);
+          setErrorVersion(value=>value+1);
           if(message.payload.code==="SESSION_REVOKED"||message.payload.code==="ROOM_NOT_FOUND"){disposed=true;ws.close()}
         }
         if(message.type==="command.ack"||message.type==="error"){
@@ -43,6 +46,10 @@ function useRoom(session:Session|null){
     connect();return()=>{disposed=true;clearTimeout(timer);socket.current?.close();for(const item of pending.current.values()){clearTimeout(item.timer);item.reject(new Error("ERROR"))}pending.current.clear();setPendingCount(0)};
   },[session]);
   useEffect(()=>{if(!feedback)return;const timer=setTimeout(()=>setFeedback(null),LIMITS.markerMs);return()=>clearTimeout(timer)},[feedback]);
+  useEffect(()=>{
+    if(error!=="DRAWING_NOT_VISIBLE")return;
+    const timer=setTimeout(()=>setError(""),LIMITS.markerMs);return()=>clearTimeout(timer);
+  },[error,errorVersion]);
   const send=useCallback<Send>((type,payload={})=>{
     if(socket.current?.readyState!==WebSocket.OPEN){setError("ERROR");return Promise.reject(new Error("ERROR"))}
     const id=commandId();const r=snapshotRef.current;
@@ -104,8 +111,8 @@ function Lobby({snapshot,send,pending,leave}:{snapshot:RoomSnapshot;send:Send;pe
       <fieldset className="settings" disabled={!me.isHost}><label>{t("rounds")}<select value={snapshot.settings.stageCount} onChange={e=>update("stageCount",Number(e.target.value))}>{Array.from({length:10},(_,i)=><option key={i} value={i+1}>{i+1}</option>)}</select></label>
       <label>{t("differences")}<select value={snapshot.settings.differencesPerPlayer} onChange={e=>update("differencesPerPlayer",Number(e.target.value))}>{[1,2,3,4,5].map(v=><option key={v}>{v}</option>)}</select></label>
       {(["drawingSeconds","answeringSeconds"] as const).map(key=><label key={key}>{t(key==="drawingSeconds"?"drawTime":"answerTime")}<select value={snapshot.settings[key]} onChange={e=>update(key,Number(e.target.value))}>{[30,45,60,90,120,180,300].map(v=><option key={v} value={v}>{t("seconds",{n:v})}</option>)}</select></label>)}
-      </fieldset><p className="muted" role="status">{t(pending?"saving":"saved")}</p>
-      <p className="muted">{t("areaRule")}</p>
+      </fieldset>
+      <RulesDialog/>
       <section className="deck-card"><h2>{t("deck")}</h2><div className="series-options">{(["animals","people"] as const).map(series=><button key={series} disabled={!me.isHost} aria-pressed={snapshot.settings.deckId===series} onClick={()=>update("deckId",series)}><strong>{t(series)}</strong><div className="deck-thumbnails">{IMAGES.filter(image=>image.deck===series).map(image=><img key={image.id} src={image.src} alt={t(series)}/>)}</div></button>)}</div></section>
       {me.isHost?<button className="primary start" disabled={pending||snapshot.participants.filter(p=>p.connected).length<2} onClick={()=>void send("game.start").catch(()=>{})}>{t("start")} →</button>:<p>{t("waiting")}</p>}
       {snapshot.participants.filter(p=>p.connected).length<2&&<p className="muted start-hint">{t("enough")}</p>}
@@ -142,12 +149,15 @@ function Drawing({snapshot,send,pending}:{snapshot:RoomSnapshot;send:Send;pendin
 function Countdown({snapshot}:{snapshot:RoomSnapshot}){const t=useText();const now=useNow();const n=Math.max(0,Math.ceil((Date.parse(snapshot.phaseEndsAt!)-now)/1000));return <section className="countdown" role="status"><h1>{t("countdown")}</h1><strong>{n||"…"}</strong></section>}
 function Answer({snapshot,send,pending}:{snapshot:RoomSnapshot;send:Send;pending:boolean}){
   const t=useText();const [view,setView]=useState<View>(initialView);const [tool,setTool]=useState<Tool>("answer");
+  const [originalNotice,setOriginalNotice]=useState(0);
+  useEffect(()=>{if(!originalNotice)return;const timer=setTimeout(()=>setOriginalNotice(0),LIMITS.markerMs);return()=>clearTimeout(timer)},[originalNotice]);
   const now=useNow();const me=snapshot.participants.find(p=>p.id===snapshot.selfId)!;const cooldown=Math.max(0,Math.ceil((Date.parse(me.answerBlockedUntil??"")-now)/1000)||0);
   const revealing=snapshot.phase==="ANSWER_REVEAL";
   return <section><PhaseHeader snapshot={snapshot} title="find" send={send} pending={pending}/><div className="toolbar"><div className="mode-controls"><button aria-pressed={tool==="answer"} onClick={()=>setTool("answer")}><Eye/>{t("answer")}</button><button aria-pressed={tool==="move"} onClick={()=>setTool("move")}><Hand/>{t("move")}</button></div><ZoomControls view={view} onView={setView}/><strong>{snapshot.differences.filter(d=>d.foundBy).length}/{snapshot.differences.length}</strong></div>
     {revealing&&<p className="reveal-notice" role="status">{t("reveal")}</p>}
     {cooldown>0&&!revealing&&<p className="cooldown" role="status">{t("cooldown",{n:cooldown})}</p>}
-    <div className="compare">{[false,true].map(changed=><Board key={String(changed)} imageUrl={snapshot.imageUrl} differences={changed?snapshot.differences:[]} view={view} onView={setView} tool={tool} label={t(changed?"changed":"original")} marks hideFound disabled={cooldown>0||revealing} onAnswer={(x,y)=>void send("answer.submit",{x,y}).catch(()=>{})}/>)}</div><Scores snapshot={snapshot}/>
+    {originalNotice>0&&<div className="feedback original-notice" role="status">{t("answerOnChanged")}</div>}
+    <div className="compare">{[false,true].map(changed=><Board key={String(changed)} imageUrl={snapshot.imageUrl} differences={changed?snapshot.differences:[]} view={view} onView={setView} tool={tool} label={t(changed?"changed":"original")} marks hideFound disabled={(changed&&cooldown>0)||revealing} onAnswer={changed?(x,y)=>{setOriginalNotice(0);void send("answer.submit",{x,y}).catch(()=>{})}:()=>setOriginalNotice(Date.now())}/>)}</div><Scores snapshot={snapshot}/>
   </section>;
 }
 function Scores({snapshot,highlightWinner=false}:{snapshot:RoomSnapshot;highlightWinner?:boolean}){

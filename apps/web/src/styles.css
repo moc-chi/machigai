@@ -6,6 +6,12 @@
 @media(pointer:coarse){.pen-cursor{display:none}}@media(prefers-reduced-motion:reduce){*{scroll-behavior:auto!important}}
 
 /* Review refinements: no horizontal tool scrolling, visible pen-tip size. */
+.rules-button{margin-top:16px}
+.rules-dialog{width:min(540px,calc(100% - 32px));max-height:85dvh;overflow:auto;overscroll-behavior:contain;border:2px solid var(--navy);border-radius:20px;background:#fffaf0;color:var(--navy);padding:24px;line-height:1.8}
+.rules-dialog::backdrop{background:#17375e99}
+.rules-dialog p{font-size:14px}.rules-dialog>button{width:100%}
+.original-notice{bottom:85px;z-index:21}
+.share-preview{max-width:540px;margin-left:auto;margin-right:auto}
 .start-hint{margin-top:18px}
 .series-options{display:grid;gap:10px;grid-template-columns:1fr 1fr}
 .series-options>button{display:block;text-align:left;min-width:0;padding:12px}
