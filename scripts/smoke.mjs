@@ -26,6 +26,10 @@ try{
   assert.equal((await send(two,"answer.submit",{x:.16,y:.31})).payload.code,"INVALID_PHASE");
   await waitFor(()=>host.state.phase==="ANSWERING");
   assert.equal(host.state.differences.length,6);
+  await send(host,"answer.submit",{x:.16,y:.31});
+  await waitFor(()=>host.events.some(e=>e.type==="answer.result"&&e.payload.result==="OWN_DIFFERENCE"));
+  assert.equal(host.state.participants.find(p=>p.id===host.participantId).score,0,"Self answers do not score");
+  assert.equal(host.state.differences.some(d=>d.foundBy),false,"Self answers do not reveal a difference");
   await send(two,"answer.submit",{x:.98,y:.98});
   await waitFor(()=>host.events.some(e=>e.type==="answer.result"&&e.payload.result==="MISS"));
   const miss=host.events.find(e=>e.type==="answer.result"&&e.payload.result==="MISS").payload;
@@ -56,8 +60,12 @@ try{
   assert.equal((await send(host,"difference.confirm",drawing("stale",.2),{stageNo:1})).payload.code,"STALE_COMMAND");
   await send(host,"difference.confirm",drawing("last",.2));
   await send(host,"phase.advance");await waitFor(()=>host.state.phase==="ANSWERING");
-  await send(three,"answer.submit",{x:.21,y:.31});await waitFor(()=>host.state.phase==="ROUND_RESULT");
+  await send(three,"answer.submit",{x:.21,y:.31});await waitFor(()=>host.state.phase==="ANSWER_REVEAL");
+  assert.equal(Date.parse(host.state.phaseEndsAt)-Date.parse(host.state.differences[0].foundAt),3000,"Final answer stays visible for three seconds");
+  assert.equal((await send(host,"phase.advance")).payload.code,"INVALID_PHASE");
+  await waitFor(()=>host.state.phase==="ROUND_RESULT");
   await send(host,"round.continue");assert.equal(host.state.phase,"FINAL_RESULT");assert.equal(host.state.rounds.length,2);
+  for(const participant of host.state.participants){const entries=host.state.rounds.flatMap(r=>r.scores).filter(s=>s.participantId===participant.id);assert.equal(entries.reduce((sum,s)=>sum+s.total,0),participant.score);for(const s of entries)assert.equal(s.total,s.found+s.unfound+s.penalty)}
   await send(host,"game.rematch");assert.equal(host.state.phase,"LOBBY");assert.equal(host.state.gameNo,2);
   console.log("PASS: 3 players, automatic settings, private multiple drawings, duplicate/stale rejection, countdown, feedback/cooldown, unique score, host skip, random rounds, gallery and rematch");
 }finally{for(const client of clients)client.ws.close()}

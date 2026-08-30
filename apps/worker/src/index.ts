@@ -5,7 +5,7 @@ import { buildHitRegion, hitTest, type HitRegion } from "@machigai/drawing";
 interface Env { ROOMS: DurableObjectNamespace<Room> }
 type InternalParticipant = Omit<Participant, "isHost"> & { secretHash: string; kicked: boolean; lastSeenAt: string };
 type InternalDifference = Difference & { hitRegion: HitRegion };
-type StoredRoom = { roomId: string; roomCode: string; phase: RoomSnapshot["phase"]; revision: number; gameNo: number; stageNo: number; imageUrl: string; phaseEndsAt?: string; hostTransferAt?: string; expiresAt?: string; hostId: string; participants: InternalParticipant[]; differences: InternalDifference[]; processedCommands: string[]; settings: GameSettings; rounds: RoundReview[] };
+type StoredRoom = { roomId: string; roomCode: string; phase: RoomSnapshot["phase"]; revision: number; gameNo: number; stageNo: number; imageUrl: string; phaseEndsAt?: string; hostTransferAt?: string; expiresAt?: string; hostId: string; participants: InternalParticipant[]; differences: InternalDifference[]; processedCommands: string[]; settings: GameSettings; rounds: RoundReview[]; roundScores?: Record<string,{found:number;unfound:number;penalty:number;total:number}> };
 type SocketSession = { participantId?: string };
 const json = (data: unknown, status = 200) => new Response(JSON.stringify(data), { status, headers: { "content-type": "application/json; charset=utf-8" } });
 const randomCode = () => Array.from(crypto.getRandomValues(new Uint8Array(6)), value => "ABCDEFGHJKLMNPQRSTUVWXYZ23456789"[value % 32]).join("");
@@ -24,6 +24,7 @@ export class Room extends DurableObject<Env> {
       if (this.room) {
         this.room.settings = { ...GAME_DEFAULTS, ...this.room.settings, missPenalty: GAME_DEFAULTS.missPenalty, missCooldownSeconds: GAME_DEFAULTS.missCooldownSeconds };
         this.room.rounds ??= [];
+        this.room.roundScores ??= {};
       }
     });
   }
@@ -158,7 +159,7 @@ export class Room extends DurableObject<Env> {
       await this.changed();
       this.send(socket, "command.ack", { commandId: id });
       if (feedback) {
-        if (feedback.result === "COOLDOWN") this.send(socket, "answer.result", feedback);
+        if (feedback.result === "COOLDOWN" || feedback.result === "OWN_DIFFERENCE") this.send(socket, "answer.result", feedback);
         else for (const [ws, session] of this.sockets) if (session.participantId) this.send(ws, "answer.result", feedback);
       }
     } catch (error) {
@@ -168,7 +169,8 @@ export class Room extends DurableObject<Env> {
   }
   private count(id: string) { return this.room!.differences.filter(d => d.creatorId === id).length; }
   private startDrawing() {
-    const r = this.room!; r.phase = "DRAWING"; r.imageUrl = chooseImage(r.stageNo > 1 ? r.imageUrl : undefined);
+    const r = this.room!; r.phase = "DRAWING"; r.imageUrl = chooseImage(r.stageNo > 1 ? r.imageUrl : undefined, Math.random(), r.settings.deckId);
+    r.roundScores = {};
     r.differences = []; this.members().forEach(p => { p.confirmed = false; delete p.answerBlockedUntil; });
     this.deadline(r.settings.drawingSeconds);
   }
@@ -181,24 +183,30 @@ export class Room extends DurableObject<Env> {
     const now = Date.now(); const at = new Date(now).toISOString();
     if (member.answerBlockedUntil && Date.parse(member.answerBlockedUntil) > now) return { participantId: member.id, result: "COOLDOWN", at, blockedUntil: member.answerBlockedUntil };
     const point = { ...AnswerSchema.parse(input), t: 0 };
-    const found = this.room!.differences.find(d => !d.foundBy && hitTest(point, d.hitRegion));
+    const found = this.room!.differences.find(d => !d.foundBy && d.creatorId !== member.id && hitTest(point, d.hitRegion));
     if (!found) {
+      if (this.room!.differences.some(d => !d.foundBy && d.creatorId === member.id && hitTest(point, d.hitRegion))) return { participantId: member.id, result: "OWN_DIFFERENCE", at };
       if (this.room!.differences.some(d => d.foundBy && hitTest(point, d.hitRegion))) return { participantId: member.id, result: "ALREADY_FOUND", at };
       member.answerBlockedUntil = new Date(now + this.room!.settings.missCooldownSeconds * 1000).toISOString();
       const previousScore = member.score;
       member.score = Math.max(0, member.score - this.room!.settings.missPenalty);
+      this.recordScore(member.id, "penalty", member.score - previousScore);
       return { participantId: member.id, result: "MISS", at, blockedUntil: member.answerBlockedUntil, scoreDelta: member.score - previousScore };
     }
     found.foundBy = member.id; found.foundAt = at; member.score += this.room!.settings.pointsForFinder;
-    if (this.room!.differences.every(d => d.foundBy)) this.finishRound();
+    this.recordScore(member.id, "found", this.room!.settings.pointsForFinder);
+    if (this.room!.differences.every(d => d.foundBy)) { this.room!.phase = "ANSWER_REVEAL"; this.deadline(LIMITS.markerMs / 1000); }
     return { participantId: member.id, result: "CORRECT", differenceId: found.id, at };
   }
   private finishRound() {
     const r = this.room!;
-    for (const d of r.differences.filter(d => !d.foundBy)) { const creator = r.participants.find(p => p.id === d.creatorId); if (creator) creator.score += r.settings.pointsForUnfoundCreator; }
+    for (const d of r.differences.filter(d => !d.foundBy)) { const creator = r.participants.find(p => p.id === d.creatorId); if (creator) { creator.score += r.settings.pointsForUnfoundCreator; this.recordScore(creator.id,"unfound",r.settings.pointsForUnfoundCreator); } }
     r.phase = "ROUND_RESULT"; delete r.phaseEndsAt;
     r.rounds = r.rounds.filter(round => round.stageNo !== r.stageNo);
-    r.rounds.push({ stageNo: r.stageNo, imageUrl: r.imageUrl, differences: r.differences.map(({ hitRegion: _, ...d }) => d) });
+    r.rounds.push({ stageNo: r.stageNo, imageUrl: r.imageUrl, differences: r.differences.map(({ hitRegion: _, ...d }) => d), scores: this.members().map(p=>({participantId:p.id,...(r.roundScores?.[p.id]??{found:0,unfound:0,penalty:0,total:0})})) });
+  }
+  private recordScore(id: string, kind: "found"|"unfound"|"penalty", amount: number) {
+    const scores=this.room!.roundScores??={}; const entry=scores[id]??={found:0,unfound:0,penalty:0,total:0}; entry[kind]+=amount;entry.total+=amount;
   }
   private deadline(seconds: number) { this.room!.phaseEndsAt = new Date(Date.now() + seconds * 1000).toISOString(); }
   async alarm() {
@@ -216,6 +224,7 @@ export class Room extends DurableObject<Env> {
         if (r.phase === "DRAWING") this.startCountdown();
         else if (r.phase === "COUNTDOWN") { r.phase = "ANSWERING"; this.deadline(r.settings.answeringSeconds); }
         else if (r.phase === "ANSWERING") this.finishRound();
+        else if (r.phase === "ANSWER_REVEAL") this.finishRound();
       }
       await this.changed();
     });

@@ -246,18 +246,7 @@ export const translations = [
     "{n} s",
     "{n} s"
   ],
-  [
-    "deck",
-    "イラストデッキ",
-    "Illustration deck",
-    "插画卡组",
-    "插畫牌組",
-    "일러스트 덱",
-    "Bildersammlung",
-    "Collection d’images",
-    "Colección de imágenes",
-    "Coleção de imagens"
-  ],
+  ["deck","イラスト","Illustrations","插画","插畫","일러스트","Illustrationen","Illustrations","Ilustraciones","Ilustrações"],
   [
     "animals",
     "どうぶつシリーズ",
@@ -522,30 +511,8 @@ export const translations = [
     "Original",
     "Original"
   ],
-  [
-    "changed",
-    "変わった絵",
-    "Changed",
-    "修改后的图",
-    "修改後的圖",
-    "바뀐 그림",
-    "Verändert",
-    "Modifié",
-    "Modificada",
-    "Modificada"
-  ],
-  [
-    "marks",
-    "正解の強調表示",
-    "Highlight differences",
-    "高亮正确位置",
-    "標示正確位置",
-    "정답 강조",
-    "Unterschiede hervorheben",
-    "Surligner les différences",
-    "Resaltar diferencias",
-    "Destacar diferenças"
-  ],
+  ["changed","間違いのある絵","Picture with differences","有不同之处的图","有不同之處的圖","차이가 있는 그림","Bild mit Unterschieden","Image avec différences","Imagen con diferencias","Imagem com diferenças"],
+  ["marks","間違いの箇所をマーク","Mark the differences","标记不同之处","標記不同之處","차이 위치 표시","Unterschiede markieren","Marquer les différences","Marcar las diferencias","Marcar as diferenças"],
   [
     "correct",
     "{name} が正解！",
@@ -654,18 +621,7 @@ export const translations = [
     "Jugar de nuevo",
     "Jogar novamente"
   ],
-  [
-    "all",
-    "全部入り",
-    "Everyone merged",
-    "全部合并",
-    "全部合併",
-    "모두 합치기",
-    "Alle zusammen",
-    "Tous les dessins",
-    "Todos combinados",
-    "Todos juntos"
-  ],
+  ["all","すべて","All","全部","全部","모두","Alle","Tout","Todo","Tudo"],
   [
     "round",
     "ラウンド {n}",
@@ -810,18 +766,7 @@ export const translations = [
     "Sesión caducada. Sal y vuelve a entrar.",
     "Sessão expirada. Saia e entre novamente."
   ],
-  [
-    "enough",
-    "接続中の2人以上で開始できます",
-    "At least 2 connected players are needed",
-    "至少需要2名已连接玩家",
-    "至少需要2名已連線玩家",
-    "접속 중인 2명 이상이 필요해요",
-    "Mindestens 2 verbundene Spieler nötig",
-    "Au moins 2 joueurs connectés sont nécessaires",
-    "Se necesitan al menos 2 jugadores conectados",
-    "São necessários pelo menos 2 jogadores conectados"
-  ],
+  ["enough","2人以上で開始できます","At least 2 players are needed","至少需要2名玩家","至少需要2名玩家","2명 이상이 필요해요","Mindestens 2 Spieler nötig","Au moins 2 joueurs sont nécessaires","Se necesitan al menos 2 jugadores","São necessários pelo menos 2 jogadores"],
   [
     "stale",
     "画面の状態が変わりました。もう一度操作してください。",
@@ -906,6 +851,17 @@ export const translations = [
     "Dibuja y confirma una diferencia a la vez. Los dibujos confirmados siguen visibles.",
     "Desenhe e confirme uma diferença por vez. Os desenhos confirmados permanecem visíveis."
   ]
+  ,["people","まちの人々","People in town","小镇居民","小鎮居民","마을 사람들","Menschen in der Stadt","Gens de la ville","Gente de la ciudad","Pessoas da cidade"]
+  ,["own","自分で描いた間違いには回答できません","You cannot answer your own difference","不能回答自己画的不同之处","不能回答自己畫的不同之處","자신이 그린 차이에는 답할 수 없어요","Du kannst deinen eigenen Unterschied nicht lösen","Vous ne pouvez pas répondre à votre propre différence","No puedes responder a tu propia diferencia","Você não pode responder à sua própria diferença"]
+  ,["reveal","すべて発見！ 最後の間違いを確認しよう","All found! Take a last look","全部找到了！看看最后一处","全部找到了！看看最後一處","모두 찾았어요! 마지막 차이를 확인하세요","Alles gefunden! Schau noch einmal hin","Tout trouvé ! Un dernier coup d’œil","¡Todo encontrado! Mira la última diferencia","Tudo encontrado! Veja a última diferença"]
+  ,["winner","優勝","Winner","获胜者","獲勝者","우승","Gewonnen","Victoire","Ganador","Vencedor"]
+  ,["breakdown","ラウンドの得点内訳","Round score breakdown","本轮得分明细","本回合得分明細","라운드 점수 내역","Rundenpunkte im Detail","Détail des points de la manche","Desglose de puntos de la ronda","Detalhes dos pontos da rodada"]
+  ,["foundPoints","発見","Found","发现","發現","발견","Gefunden","Trouvées","Encontradas","Encontradas"]
+  ,["unfoundPoints","未発見ボーナス","Unfound bonus","未被发现奖励","未被發現獎勵","미발견 보너스","Unentdeckt-Bonus","Bonus non trouvé","Bono sin descubrir","Bônus não encontrado"]
+  ,["missPoints","誤回答","Wrong answers","错误回答","錯誤回答","오답","Falsche Antworten","Erreurs","Respuestas incorrectas","Respostas erradas"]
+  ,["roundTotal","増減","Net change","变化","變化","변동","Änderung","Variation","Cambio neto","Variação"]
+  ,["sharePreview","共有画像を見る","Preview share image","预览分享图片","預覽分享圖片","공유 이미지 미리보기","Vorschaubild ansehen","Aperçu de l’image","Ver imagen para compartir","Ver imagem de compartilhamento"]
+  ,["shareBadge","{n}個の間違い","{n} differences","{n}处不同","{n}處不同","차이 {n}개","{n} Unterschiede","{n} différences","{n} diferencias","{n} diferenças"]
 ] as const;
 export type TextKey = typeof translations[number][0];
 export function translate(language: Language, key: TextKey, values: Record<string,string|number> = {}): string {

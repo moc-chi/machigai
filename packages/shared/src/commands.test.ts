@@ -16,6 +16,11 @@ describe("room commands and decks", () => {
   it("does not repeat the previous image", () => {
     for (const image of IMAGES) for (const random of [0,.2,.5,.999]) expect(chooseImage(image.src,random)).not.toBe(image.src);
   });
+  it("selects the human series and permits its single illustration to repeat", () => {
+    expect(SettingsUpdateSchema.parse({deckId:"people"})).toEqual({deckId:"people"});
+    expect(chooseImage(undefined,0,"people")).toBe("/assets/people-market.png");
+    expect(chooseImage("/assets/people-market.png",.5,"people")).toBe("/assets/people-market.png");
+  });
   it("rejects malformed commands rather than trusting client casts", () => {
     expect(ClientCommandSchema.safeParse({type:"phase.advance",commandId:crypto.randomUUID(),payload:{}}).success).toBe(true);
     expect(ClientCommandSchema.safeParse({type:"member.ready",commandId:crypto.randomUUID(),payload:{ready:"yes"}}).success).toBe(false);

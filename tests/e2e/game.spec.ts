@@ -41,6 +41,22 @@ test("three players, settings, two differences, live languages and share image",
     await draw(three,.7,.25);await draw(three,.7,.65);
     await expect(host.getByRole("heading",{name:"まもなく回答スタート"})).toBeVisible();
     await expect(host.getByRole("heading",{name:"みんなの間違いを見つけよう"})).toBeVisible();
+    await expect(host.getByRole("checkbox")).toHaveCount(0);
+    await host.evaluate(()=>{
+      const state=window as unknown as {testNotices:string[]};state.testNotices=[];
+      new MutationObserver(()=>{const text=document.querySelector(".feedback")?.textContent;if(text)state.testNotices.push(text)}).observe(document.body,{childList:true,subtree:true,characterData:true});
+    });
+    await expect(host.locator(".board-loading")).toHaveCount(0);
+    const ownCanvas=host.locator("canvas").last();await ownCanvas.scrollIntoViewIfNeeded();const ownBox=await ownCanvas.boundingBox();
+    await ownCanvas.click({position:{x:ownBox!.width*.175,y:ownBox!.height*.265}});
+    await expect(host.locator(".feedback")).toContainText("自分で描いた間違いには回答できません");
+    const otherCanvas=three.locator("canvas").last();await expect(three.locator(".board-loading")).toHaveCount(0);await otherCanvas.scrollIntoViewIfNeeded();const otherBox=await otherCanvas.boundingBox();
+    await otherCanvas.click({position:{x:otherBox!.width*.175,y:otherBox!.height*.265}});
+    await expect.poll(()=>host.evaluate(()=>(window as unknown as {testNotices:string[]}).testNotices.some(text=>text.includes("Three が正解")))).toBe(true);
+    await expect.poll(()=>host.locator("canvas").evaluateAll(elements=>{
+      const [original,changed]=elements as HTMLCanvasElement[];const x=Math.floor(original.width*.175),y=Math.floor(original.height*.265);
+      return JSON.stringify([...original.getContext("2d")!.getImageData(x,y,4,4).data])===JSON.stringify([...changed.getContext("2d")!.getImageData(x,y,4,4).data]);
+    })).toBe(true);
     await expect(two.locator(".board-loading")).toHaveCount(0);
     const canvas=two.locator("canvas").last();await canvas.scrollIntoViewIfNeeded();const box=await canvas.boundingBox();if(!box)throw new Error("No answer image");
     await canvas.click({position:{x:box.width*.98,y:box.height*.98}});
@@ -58,7 +74,11 @@ test("three players, settings, two differences, live languages and share image",
     expect(png.subarray(1,4).toString()).toBe("PNG");expect(png.readUInt32BE(16)).toBe(1600);expect(png.readUInt32BE(20)).toBeGreaterThan(600);
     await host.getByRole("button",{name:"最終結果を見る"}).click();
     await expect(host.getByRole("heading",{name:"最終結果"})).toBeVisible();
-    await expect(host.getByRole("button",{name:"全部入り",exact:true})).toHaveAttribute("aria-pressed","true");
+    await expect(host.getByRole("button",{name:"すべて",exact:true})).toHaveAttribute("aria-pressed","true");
+    await expect(host.getByRole("checkbox",{name:"間違いの箇所をマーク"})).toBeChecked();
+    await expect(host.locator(".scores .winner")).not.toHaveCount(0);
+    await expect(host.getByRole("heading",{name:"ラウンドの得点内訳"})).toBeVisible();
+    await expect(host.locator('a[href*="twitter.com"]')).toHaveCount(0);
     await host.getByRole("button",{name:"Two",exact:true}).click();
     await expect(host.getByRole("button",{name:"Two",exact:true})).toHaveAttribute("aria-pressed","true");
     await host.screenshot({path:testInfo.outputPath("results.png"),fullPage:true});
@@ -70,6 +90,8 @@ test("mobile QR and toolbar fit without horizontal scrolling",async({page,browse
   const qr=await page.locator(".real-qr").boundingBox();expect(qr!.x+qr!.width).toBeLessThanOrEqual(375);
   expect(await page.evaluate(()=>document.documentElement.scrollWidth)).toBeLessThanOrEqual(375);
   await page.screenshot({path:testInfo.outputPath("mobile-lobby.png"),fullPage:true});
+  await page.getByRole("button",{name:"まちの人々",exact:false}).click();
+  await expect(page.getByRole("button",{name:"まちの人々",exact:false})).toHaveAttribute("aria-pressed","true");
   const guest=await browser.newPage();
   try{
     await enter(guest,"Guest",(await page.locator(".invite-card>strong").textContent())!);
@@ -77,6 +99,8 @@ test("mobile QR and toolbar fit without horizontal scrolling",async({page,browse
     await expect(page.getByTestId("confirmed-progress")).toBeVisible();
     expect(await page.evaluate(()=>document.documentElement.scrollWidth)).toBeLessThanOrEqual(375);
     for(const button of await page.locator(".toolbar button").all()){const b=await button.boundingBox();expect(b!.x).toBeGreaterThanOrEqual(0);expect(b!.x+b!.width).toBeLessThanOrEqual(375)}
+    const mode=await page.getByRole("button",{name:"描画",exact:true}).boundingBox();const undo=await page.getByRole("button",{name:"1本戻す",exact:true}).boundingBox();expect(undo!.y).toBe(mode!.y);
+    await expect(page.locator(".pen-preview")).not.toContainText("#");
     await page.getByLabel("拡大率",{exact:true}).fill("3");
     await expect(page.locator(".zoom-controls output")).toHaveText("300%");
     await page.getByRole("button",{name:"全体",exact:true}).click();

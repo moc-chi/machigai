@@ -4,3 +4,23 @@
 @media(max-width:900px){.home{gap:30px;grid-template-columns:1fr}.hero-image{max-width:650px;grid-row:1}.lobby-grid{grid-template-columns:240px minmax(0,1fr)}.result-layout{grid-template-columns:1fr}.result-layout aside{max-width:none}.toolbar{gap:10px}.pen-controls{flex-basis:100%}.compare{gap:10px}}
 @media(max-width:600px){header{padding:12px}.brand strong{font-size:12px}.brand>span{width:34px;height:34px;font-size:23px}.language-picker>span{display:none}.language-picker select{max-width:132px;font-size:12px}main{padding:10px 12px 35px}.home h1{font-size:34px}.home{gap:25px}.lobby-grid{grid-template-columns:1fr}.invite-card{padding:15px;display:grid;grid-template-columns:minmax(0,1fr) minmax(90px,125px);gap:8px 14px}.invite-card>span,.invite-card>strong,.invite-card>button{grid-column:1;justify-self:center}.invite-card>strong{font-size:28px;letter-spacing:.05em}.real-qr{grid-column:2;grid-row:1/4;width:100%;max-width:125px}.invite-card>button{font-size:11px;padding:7px}.members-card{padding:16px}.settings{gap:10px}.deck-thumbnails{gap:4px}.phase-header{gap:8px}.phase-header>div{min-width:0;flex-basis:calc(100% - 100px)}.phase-header h1{font-size:21px}.phase-header .advance{margin-left:auto}.timer{font-size:20px}.toolbar{padding:9px;gap:8px}.toolbar button{font-size:11px;padding:7px 9px;min-height:40px}.mode-controls{flex:1}.pen-controls{display:flex;gap:8px}.pen-preview{min-width:72px}.zoom-controls{flex-basis:100%;width:100%;flex-wrap:nowrap}.zoom-controls label{flex:1;min-width:0}.zoom-controls input{width:auto;flex:1;min-width:40px}.zoom-controls button{flex:none}.draft-actions{flex-basis:100%}.draft-actions button{flex:1}.compare{grid-template-columns:1fr;gap:14px}.drawing-footer{gap:12px}.drawing-footer .primary{width:100%}.drawing-footer p{font-size:11px}.board-viewport{border-radius:10px}.share-actions button{flex:1}.share-actions a{flex-basis:100%}.result-layout{gap:18px}.scores li{font-size:13px}}
 @media(pointer:coarse){.pen-cursor{display:none}}@media(prefers-reduced-motion:reduce){*{scroll-behavior:auto!important}}
+
+/* Review refinements: no horizontal tool scrolling, visible pen-tip size. */
+.start-hint{margin-top:18px}
+.series-options{display:grid;gap:10px;grid-template-columns:1fr 1fr}
+.series-options>button{display:block;text-align:left;min-width:0;padding:12px}
+.series-options strong{display:block;margin-bottom:8px}
+.series-options .deck-thumbnails{grid-template-columns:repeat(3,minmax(0,1fr))}
+.series-options .deck-thumbnails img:only-child{grid-column:1/-1;max-height:140px;object-fit:contain}
+.pen-preview{width:40px;height:40px;min-width:40px;padding:0;display:grid;place-items:center;border:1px solid #d9dfdf;border-radius:50%}
+.pen-preview i{border-radius:50%;outline:1px solid #17375e40;max-height:none}
+.drawing-toolbar .mode-controls{flex-wrap:nowrap}
+.reveal-notice{padding:12px;background:#e3f4e9;border-radius:12px;font-weight:800;text-align:center}
+.scores .winner{background:#fff1bc;border:2px solid #dc9a18;box-shadow:0 3px 0 #e8b842}
+.winner-label{display:flex;align-items:center;gap:5px;color:#986000;font-size:12px}
+.winner-label svg{width:16px;height:16px}
+.score-breakdown{margin:18px 0 24px}.score-breakdown h2{font-size:16px}
+.score-detail{background:#fff;border:1px solid var(--line);border-radius:10px;padding:10px;margin-bottom:8px;font-size:12px}
+.score-detail dl{margin:8px 0 0;display:grid;gap:4px}.score-detail dl>div{display:flex;justify-content:space-between;gap:8px}.score-detail dd{margin:0;font-variant-numeric:tabular-nums}.score-detail dl>div:last-child{border-top:1px solid var(--line);padding-top:5px;font-weight:800}
+.share-panel details{margin-top:14px}
+@media(max-width:600px){.drawing-toolbar .mode-controls{flex-basis:100%;gap:5px}.drawing-toolbar .mode-controls button{padding:7px;flex:1}.drawing-toolbar .mode-controls button span{display:none}.series-options{grid-template-columns:1fr}.series-options .deck-thumbnails{grid-template-columns:repeat(5,minmax(0,1fr))}.series-options .deck-thumbnails img:only-child{max-height:120px;justify-self:start}.pen-preview{min-width:36px;width:36px;height:36px}}
