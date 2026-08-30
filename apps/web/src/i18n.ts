@@ -6,6 +6,9 @@ export const LANGUAGES = [
 export type Language = typeof LANGUAGES[number][0];
 export const LanguageContext = createContext<Language>("ja");
 export const translations = [
+  ["notVisible","変化が小さすぎるか、確定済みの絵と同じです。色や太さを変えてください。","The change is too small or duplicates your drawing. Change its color or thickness.","变化太小或与已确认的绘画重复。请更改颜色或粗细。","變化太小或與已確認的繪畫重複。請更改顏色或粗細。","변화가 너무 작거나 기존 그림과 같아요. 색이나 굵기를 바꿔 주세요.","Die Änderung ist zu klein oder doppelt. Ändere Farbe oder Stärke.","Le changement est trop petit ou identique. Modifiez la couleur ou l’épaisseur.","El cambio es demasiado pequeño o repetido. Cambia el color o el grosor.","A mudança é pequena demais ou repetida. Mude a cor ou a espessura."],
+  ["tooComplex","線が複雑すぎます。線を減らして確定してください。","Too many complex strokes. Remove some and try again.","线条过于复杂。请减少线条后重试。","線條過於複雜。請減少線條後重試。","선이 너무 복잡해요. 줄인 후 다시 시도하세요.","Zu komplex. Entferne einige Linien.","Trop complexe. Retirez quelques traits.","Demasiado complejo. Elimina algunos trazos.","Muito complexo. Remova alguns traços."],
+  ["areaRule","見える変更面積：小〈1%未満〉150 / 50点、中〈1〜3%〉100 / 100点、大〈3%以上〉50 / 150点（発見 / 未発見）","Visible area: small <1% 150/50, medium 1–3% 100/100, large ≥3% 50/150 (found/unfound)","可见面积：小<1% 150/50，中1–3% 100/100，大≥3% 50/150（发现/未发现）","可見面積：小<1% 150/50，中1–3% 100/100，大≥3% 50/150（發現/未發現）","보이는 면적: 소 <1% 150/50, 중 1–3% 100/100, 대 ≥3% 50/150 (발견/미발견)","Sichtbare Fläche: klein <1% 150/50, mittel 1–3% 100/100, groß ≥3% 50/150 (gefunden/unentdeckt)","Surface visible : petite <1% 150/50, moyenne 1–3% 100/100, grande ≥3% 50/150 (trouvée/non trouvée)","Área visible: pequeña <1% 150/50, media 1–3% 100/100, grande ≥3% 50/150 (encontrada/no encontrada)","Área visível: pequena <1% 150/50, média 1–3% 100/100, grande ≥3% 50/150 (encontrada/não encontrada)"],
   [
     "app",
     "まちがいパーティー",
@@ -872,5 +875,7 @@ export function translate(language: Language, key: TextKey, values: Record<strin
 }
 export function useText() { const language = useContext(LanguageContext); return (key: TextKey, values?: Record<string,string|number>) => translate(language,key,values); }
 export function errorKey(code: string): TextKey {
+  if(code==="DRAWING_NOT_VISIBLE")return "notVisible";
+  if(code==="DRAWING_TOO_COMPLEX")return "tooComplex";
   return ({ INVALID_PAYLOAD: "invalid", NOT_HOST: "notHost", ROOM_NOT_FOUND: "noRoom", ROOM_FULL: "full", SESSION_REVOKED: "revoked", NOT_ENOUGH_PLAYERS: "enough", STALE_COMMAND: "stale", INVALID_PHASE: "stale", ALREADY_CONFIRMED: "confirmed", GAME_ALREADY_STARTED: "stale" } as Record<string,TextKey>)[code] ?? "error";
 }

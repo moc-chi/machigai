@@ -6,6 +6,8 @@
     "packages/*"
   ],
   "scripts": {
+    "predev": "node scripts/build-source-pixels.mjs",
+    "prebuild": "node scripts/build-source-pixels.mjs",
     "dev": "concurrently -n web,worker -c cyan,magenta \"npm run dev -w @machigai/web\" \"npm run dev -w @machigai/worker\"",
     "build": "npm run build -w @machigai/shared && npm run build -w @machigai/drawing && npm run build -w @machigai/web && npm run build -w @machigai/worker",
     "typecheck": "npm run typecheck --workspaces --if-present",
@@ -16,6 +18,7 @@
   "devDependencies": {
     "@playwright/test": "^1.62.1",
     "concurrently": "^9.2.1",
+    "sharp": "^0.35.2",
     "typescript": "^5.9.2",
     "vitest": "^3.2.4"
   }

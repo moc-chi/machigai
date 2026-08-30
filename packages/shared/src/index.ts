@@ -1,4 +1,5 @@
 import { z } from "zod";
+export { AREA_RULES, areaPoints } from "./scoring";
 
 export const IMAGES = [
   { id: "bakery", src: "/assets/bakery.png", width: 1536, height: 1024, deck: "animals" },
@@ -7,6 +8,10 @@ export const IMAGES = [
   { id: "space", src: "/assets/space.png", width: 1456, height: 1092, deck: "animals" },
   { id: "onsen", src: "/assets/onsen.png", width: 1456, height: 1092, deck: "animals" },
   { id: "people-market", src: "/assets/people-market.png", width: 1448, height: 1086, deck: "people" },
+  { id: "people-park", src: "/assets/people-park.png", width: 1448, height: 1086, deck: "people" },
+  { id: "people-kitchen", src: "/assets/people-kitchen.png", width: 1448, height: 1086, deck: "people" },
+  { id: "people-library", src: "/assets/people-library.png", width: 1448, height: 1086, deck: "people" },
+  { id: "people-festival", src: "/assets/people-festival.png", width: 1448, height: 1086, deck: "people" },
 ] as const;
 export const GAME_DEFAULTS = {
   minPlayers: 2, maxPlayers: 10, stageCount: 1, differencesPerPlayer: 1,
@@ -52,7 +57,7 @@ export type Stroke = z.infer<typeof StrokeSchema>;
 export type DifferenceInput = z.infer<typeof DifferenceSchema>;
 export type Phase = "LOBBY" | "DRAWING" | "COUNTDOWN" | "ANSWERING" | "ANSWER_REVEAL" | "ROUND_RESULT" | "FINAL_RESULT" | "ENDED";
 export type Participant = { id: string; nickname: string; joinOrder: number; connected: boolean; ready: boolean; score: number; isHost: boolean; confirmed: boolean; confirmedCount?: number; answerBlockedUntil?: string };
-export type Difference = { id: string; creatorId: string; strokes: Stroke[]; foundBy?: string; foundAt?: string };
+export type Difference = { id: string; creatorId: string; strokes: Stroke[]; foundBy?: string; foundAt?: string; points?: {finder:number;unfound:number} };
 export type ScoreBreakdown = { participantId: string; found: number; unfound: number; penalty: number; total: number };
 export type RoundReview = { stageNo: number; imageUrl: string; differences: Difference[]; scores?: ScoreBreakdown[] };
 export type RoomSnapshot = { roomId: string; roomCode: string; phase: Phase; revision: number; gameNo: number; stageNo: number; stageCount: number; imageUrl: string; phaseEndsAt?: string; selfId: string; participants: Participant[]; differences: Difference[]; settings: GameSettings; rounds?: RoundReview[] };

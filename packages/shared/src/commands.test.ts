@@ -14,12 +14,12 @@ describe("room commands and decks", () => {
     for (const value of [{stageCount:0},{stageCount:11},{differencesPerPlayer:6},{drawingSeconds:29},{answeringSeconds:301},{deckId:"unknown"},{}]) expect(SettingsUpdateSchema.safeParse(value).success).toBe(false);
   });
   it("does not repeat the previous image", () => {
-    for (const image of IMAGES) for (const random of [0,.2,.5,.999]) expect(chooseImage(image.src,random)).not.toBe(image.src);
+    for (const image of IMAGES) for (const random of [0,.2,.5,.999]) expect(chooseImage(image.src,random,image.deck)).not.toBe(image.src);
   });
-  it("selects the human series and permits its single illustration to repeat", () => {
+  it("offers five images in each series", () => {
     expect(SettingsUpdateSchema.parse({deckId:"people"})).toEqual({deckId:"people"});
     expect(chooseImage(undefined,0,"people")).toBe("/assets/people-market.png");
-    expect(chooseImage("/assets/people-market.png",.5,"people")).toBe("/assets/people-market.png");
+    for(const deck of ["animals","people"]) expect(IMAGES.filter(image=>image.deck===deck)).toHaveLength(5);
   });
   it("rejects malformed commands rather than trusting client casts", () => {
     expect(ClientCommandSchema.safeParse({type:"phase.advance",commandId:crypto.randomUUID(),payload:{}}).success).toBe(true);

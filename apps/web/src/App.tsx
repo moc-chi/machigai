@@ -105,6 +105,7 @@ function Lobby({snapshot,send,pending,leave}:{snapshot:RoomSnapshot;send:Send;pe
       <label>{t("differences")}<select value={snapshot.settings.differencesPerPlayer} onChange={e=>update("differencesPerPlayer",Number(e.target.value))}>{[1,2,3,4,5].map(v=><option key={v}>{v}</option>)}</select></label>
       {(["drawingSeconds","answeringSeconds"] as const).map(key=><label key={key}>{t(key==="drawingSeconds"?"drawTime":"answerTime")}<select value={snapshot.settings[key]} onChange={e=>update(key,Number(e.target.value))}>{[30,45,60,90,120,180,300].map(v=><option key={v} value={v}>{t("seconds",{n:v})}</option>)}</select></label>)}
       </fieldset><p className="muted" role="status">{t(pending?"saving":"saved")}</p>
+      <p className="muted">{t("areaRule")}</p>
       <section className="deck-card"><h2>{t("deck")}</h2><div className="series-options">{(["animals","people"] as const).map(series=><button key={series} disabled={!me.isHost} aria-pressed={snapshot.settings.deckId===series} onClick={()=>update("deckId",series)}><strong>{t(series)}</strong><div className="deck-thumbnails">{IMAGES.filter(image=>image.deck===series).map(image=><img key={image.id} src={image.src} alt={t(series)}/>)}</div></button>)}</div></section>
       {me.isHost?<button className="primary start" disabled={pending||snapshot.participants.filter(p=>p.connected).length<2} onClick={()=>void send("game.start").catch(()=>{})}>{t("start")} →</button>:<p>{t("waiting")}</p>}
       {snapshot.participants.filter(p=>p.connected).length<2&&<p className="muted start-hint">{t("enough")}</p>}

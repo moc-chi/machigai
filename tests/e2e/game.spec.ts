@@ -87,6 +87,8 @@ test("three players, settings, two differences, live languages and share image",
 });
 test("mobile QR and toolbar fit without horizontal scrolling",async({page,browser},testInfo)=>{
   await page.setViewportSize({width:375,height:812});await enter(page,"Mobile");
+  await expect(page.locator(".deck-thumbnails img")).toHaveCount(10);
+  await expect.poll(()=>page.locator(".deck-thumbnails img").evaluateAll(images=>images.every(image=>(image as HTMLImageElement).complete&&(image as HTMLImageElement).naturalWidth>0))).toBe(true);
   const qr=await page.locator(".real-qr").boundingBox();expect(qr!.x+qr!.width).toBeLessThanOrEqual(375);
   expect(await page.evaluate(()=>document.documentElement.scrollWidth)).toBeLessThanOrEqual(375);
   await page.screenshot({path:testInfo.outputPath("mobile-lobby.png"),fullPage:true});
