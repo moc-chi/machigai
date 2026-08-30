@@ -2,7 +2,7 @@
 
 ## Project purpose
 
-Build a mobile-first, real-time spot-the-difference party game for 3–10 invited friends. All participants draw one difference on the same source illustration, then everyone races to find the combined differences.
+Build a mobile-first, real-time spot-the-difference party game for 2–10 invited friends. All participants draw 1–5 differences on the same source illustration, then everyone races to find the combined differences.
 
 ## Source of truth
 

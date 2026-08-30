@@ -1,5 +1,7 @@
 # API・リアルタイムイベント設計
 
+2026-08-30: 現行の設定patch、command.ack、answer.result、roundsは [操作・通信更新](interaction-update.md) に定義する。以下の旧イベント案と競合する場合は同更新とsharedスキーマを参照する。
+
 ## 1. 共通仕様
 
 - 通信形式はJSON、文字コードはUTF-8。

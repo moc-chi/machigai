@@ -1,112 +1,180 @@
-import { useCallback, useEffect, useRef, useState } from "react";
-import { Check, Copy, Crown, Eye, EyeOff, Hand, Minus, Pencil, Pipette, Plus, RotateCcw, Share2 } from "lucide-react";
+import { useCallback, useContext, useEffect, useRef, useState } from "react";
+import { Check, Copy, Crown, Download, Eye, Hand, Pencil, Pipette, RotateCcw, Share2, Trash2, Undo2 } from "lucide-react";
 import { QRCodeSVG } from "qrcode.react";
-import { commandId, type ClientCommand, type CreateRoomResponse, type Difference, type RoomSnapshot, type ServerEvent, type Stroke } from "@machigai/shared";
-import { drawSmoothStroke } from "@machigai/drawing";
-
+import { GAME_DEFAULTS, IMAGES, LIMITS, commandId, type AnswerFeedback, type ClientCommand, type CreateRoomResponse, type Difference, type RoomSnapshot, type ServerEvent, type Stroke } from "@machigai/shared";
+import { Board, initialView, type Tool } from "./Board";
+import type { View } from "@machigai/drawing";
+import { LANGUAGES, LanguageContext, errorKey, useText, type Language } from "./i18n";
+import { downloadImage, makeShareImage } from "./share";
 type Session = CreateRoomResponse & { nickname: string };
+type Send = (type: ClientCommand["type"], payload?: unknown) => Promise<void>;
 const SESSION_KEY = "machigai-session";
-const api = async <T,>(path: string, body: unknown): Promise<T> => {
-  const response = await fetch(path, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify(body) });
-  const data = await response.json() as T & { message?: string }; if (!response.ok) throw new Error(data.message ?? "通信に失敗しました"); return data;
-};
-
-function socketUrl(path: string) { const protocol = location.protocol === "https:" ? "wss:" : "ws:"; return `${protocol}//${location.host}${path}`; }
-
-function useRoom(session: Session | null) {
-  const [snapshot, setSnapshot] = useState<RoomSnapshot | null>(null);
-  const [connected, setConnected] = useState(false);
-  const [notice, setNotice] = useState("");
-  const socket = useRef<WebSocket | null>(null);
-  const retry = useRef(0);
-  useEffect(() => {
-    if (!session) return;
-    let disposed = false; let timer = 0;
-    const connect = () => {
-      if (disposed) return;
-      const ws = new WebSocket(socketUrl(session.socketUrl)); socket.current = ws;
-      ws.addEventListener("open", () => { retry.current = 0; setConnected(true); ws.send(JSON.stringify({ type: "session.resume", commandId: commandId(), payload: { participantId: session.participantId, reconnectSecret: session.reconnectSecret } })); });
-      ws.addEventListener("message", (event) => { const message = JSON.parse(String(event.data)) as ServerEvent; if (message.type === "state.snapshot") setSnapshot(message.payload); else if (message.type === "error" || message.type === "toast") setNotice(message.payload.message); });
-      ws.addEventListener("close", () => { setConnected(false); if (!disposed) { const delay = Math.min(15000, 1000 * 2 ** retry.current++); timer = window.setTimeout(connect, delay); } });
-    };
-    connect(); return () => { disposed = true; clearTimeout(timer); socket.current?.close(); };
-  }, [session]);
-  const send = useCallback((type: ClientCommand["type"], payload: unknown = {}) => { if (socket.current?.readyState !== WebSocket.OPEN) { setNotice("再接続中です"); return; } socket.current.send(JSON.stringify({ type, commandId: commandId(), payload })); }, []);
-  return { snapshot, connected, notice, setNotice, send };
+async function api(path:string,body:unknown):Promise<CreateRoomResponse>{
+  const r=await fetch(path,{method:"POST",headers:{"content-type":"application/json"},body:JSON.stringify(body)});
+  const data=await r.json() as CreateRoomResponse&{code?:string};if(!r.ok)throw new Error(data.code??"ERROR");return data;
 }
-
-export function App() {
-  const [session, setSession] = useState<Session | null>(() => { try { return JSON.parse(sessionStorage.getItem(SESSION_KEY) ?? "null") as Session | null; } catch { return null; } });
-  const room = useRoom(session);
-  const saveSession = (next: Session) => { sessionStorage.setItem(SESSION_KEY, JSON.stringify(next)); setSession(next); };
-  const leave = () => { sessionStorage.removeItem(SESSION_KEY); setSession(null); location.hash = ""; };
-  const [language,setLanguage]=useState<"ja"|"en">(()=>localStorage.getItem("language")==="en"?"en":"ja");
-  const changeLanguage=(value:"ja"|"en")=>{localStorage.setItem("language",value);setLanguage(value)};
-  return <div className="app-shell" lang={language}>
-    <header><a className="brand" href="#" onClick={(event) => { if (session) { event.preventDefault(); leave(); } }}><span>?</span><strong>まちがい<br />パーティー</strong></a><label className="language-picker">Language<select value={language} onChange={e=>changeLanguage(e.target.value as "ja"|"en")}><option value="ja">日本語</option><option value="en">English</option></select></label></header>
-    <main>{!session ? <Home onSession={saveSession} language={language}/> : !room.snapshot ? <Loading/> : <Game session={session} snapshot={room.snapshot} send={room.send} leave={leave}/>}</main>
-    {room.notice && <button className="toast" onClick={() => room.setNotice("")}>{room.notice}</button>}
+function useRoom(session:Session|null){
+  const [snapshot,setSnapshot]=useState<RoomSnapshot|null>(null);const snapshotRef=useRef(snapshot);snapshotRef.current=snapshot;
+  const [error,setError]=useState("");const [feedback,setFeedback]=useState<AnswerFeedback|null>(null);
+  const [pendingCount,setPendingCount]=useState(0);const socket=useRef<WebSocket|null>(null);
+  const pending=useRef(new Map<string,{resolve:()=>void;reject:(error:Error)=>void;timer:number}>());
+  useEffect(()=>{
+    setSnapshot(null);setFeedback(null);if(!session)return;
+    let disposed=false,attempt=0,timer=0;
+    const connect=()=>{
+      if(disposed)return;
+      const ws=new WebSocket((location.protocol==="https:"?"wss:":"ws:")+"//"+location.host+session.socketUrl);socket.current=ws;
+      ws.onopen=()=>{attempt=0;ws.send(JSON.stringify({type:"session.resume",commandId:commandId(),payload:{participantId:session.participantId,reconnectSecret:session.reconnectSecret}}))};
+      ws.onmessage=event=>{
+        if(disposed)return;
+        const message=JSON.parse(String(event.data)) as ServerEvent;
+        if(message.type==="state.snapshot")setSnapshot(previous=>!previous||message.payload.revision>=previous.revision?message.payload:previous);
+        if(message.type==="answer.result")setFeedback(message.payload);
+        if(message.type==="error"){
+          setError(message.payload.code);
+          if(message.payload.code==="SESSION_REVOKED"||message.payload.code==="ROOM_NOT_FOUND"){disposed=true;ws.close()}
+        }
+        if(message.type==="command.ack"||message.type==="error"){
+          const id=message.payload.commandId;if(id){const item=pending.current.get(id);if(item){clearTimeout(item.timer);pending.current.delete(id);setPendingCount(pending.current.size);if(message.type==="error")item.reject(new Error(message.payload.code));else item.resolve()}}
+        }
+      };
+      ws.onclose=()=>{if(!disposed)timer=window.setTimeout(connect,Math.min(15000,1000*2**attempt++))};
+    };
+    connect();return()=>{disposed=true;clearTimeout(timer);socket.current?.close();for(const item of pending.current.values()){clearTimeout(item.timer);item.reject(new Error("ERROR"))}pending.current.clear();setPendingCount(0)};
+  },[session]);
+  useEffect(()=>{if(!feedback)return;const timer=setTimeout(()=>setFeedback(null),LIMITS.markerMs);return()=>clearTimeout(timer)},[feedback]);
+  const send=useCallback<Send>((type,payload={})=>{
+    if(socket.current?.readyState!==WebSocket.OPEN){setError("ERROR");return Promise.reject(new Error("ERROR"))}
+    const id=commandId();const r=snapshotRef.current;
+    return new Promise<void>((resolve,reject)=>{
+      const timer=window.setTimeout(()=>{pending.current.delete(id);setPendingCount(pending.current.size);setError("ERROR");reject(new Error("ERROR"))},10000);
+      pending.current.set(id,{resolve,reject,timer});setPendingCount(pending.current.size);
+      socket.current!.send(JSON.stringify({type,commandId:id,gameNo:r?.gameNo,stageNo:r?.stageNo,payload}));
+    });
+  },[]);
+  return {snapshot,error,setError,feedback,send,pendingCount};
+}
+export function App(){
+  const [language,setLanguage]=useState<Language>(()=>{const saved=localStorage.getItem("language");return LANGUAGES.some(([code])=>code===saved)?saved as Language:"ja"});
+  useEffect(()=>{localStorage.setItem("language",language);document.documentElement.lang=language},[language]);
+  return <LanguageContext.Provider value={language}><Shell language={language} onLanguage={setLanguage}/></LanguageContext.Provider>;
+}
+function Shell({language,onLanguage}:{language:Language;onLanguage:(value:Language)=>void}){
+  const t=useText();const [session,setSession]=useState<Session|null>(()=>{try{return JSON.parse(sessionStorage.getItem(SESSION_KEY)??"null") as Session|null}catch{return null}});
+  const room=useRoom(session);
+  const join=(next:Session)=>{sessionStorage.setItem(SESSION_KEY,JSON.stringify(next));setSession(next)};
+  const leave=()=>{sessionStorage.removeItem(SESSION_KEY);setSession(null);room.setError("");history.replaceState(null,"",location.pathname)};
+  const name=room.snapshot?.participants.find(p=>p.id===room.feedback?.participantId)?.nickname??"";
+  return <div className="app-shell">
+    <header><a className="brand" href="#" onClick={event=>{event.preventDefault();if(session)leave()}}><span>?</span><strong>{t("app")}</strong></a>
+      <label className="language-picker"><span>Language</span><select aria-label="Language" value={language} onChange={e=>onLanguage(e.target.value as Language)}>{LANGUAGES.map(([code,label])=><option key={code} value={code}>{label}</option>)}</select></label>
+    </header>
+    <main>{!session?<Home onSession={join}/>:!room.snapshot?<section className="loading"><p>{t("loading")}</p><button onClick={leave}>{t("leave")}</button></section>:<Game key={session.participantId} snapshot={room.snapshot} send={room.send} pending={room.pendingCount>0} leave={leave}/>}</main>
+    {room.feedback&&<div className={"feedback "+room.feedback.result.toLowerCase()} role="status" aria-live="polite">{room.feedback.result==="CORRECT"?t("correct",{name}):room.feedback.result==="MISS"?t("miss",{name}):room.feedback.result==="ALREADY_FOUND"?t("already"):t("cooldown",{n:GAME_DEFAULTS.missCooldownSeconds})}</div>}
+    {room.error&&<button className="error-toast" role="alert" onClick={()=>room.setError("")}>{t(errorKey(room.error))} ×</button>}
   </div>;
 }
-
-function Home({ onSession, language }: { onSession: (session: Session) => void; language: "ja"|"en" }) {
-  const [mode, setMode] = useState<"create" | "join" | null>(null); const [nickname, setNickname] = useState(""); const [roomCode, setRoomCode] = useState(() => new URLSearchParams(location.search).get("room")?.toUpperCase() ?? ""); const [busy, setBusy] = useState(false); const [error, setError] = useState("");
-  useEffect(() => { if (roomCode.length === 6) setMode("join"); }, [roomCode]);
-  const submit = async () => { if (!mode) return; setBusy(true); setError(""); try { const result = mode === "create" ? await api<CreateRoomResponse>("/api/v1/rooms", { nickname }) : await api<CreateRoomResponse>("/api/v1/rooms/join", { nickname, roomCode }); onSession({ ...result, nickname }); } catch (e) { setError(e instanceof Error ? e.message : "失敗しました"); } finally { setBusy(false); } };
-  return <section className="home home-mock"><div className="hero hero-copy"><span className="eyebrow">{language==="ja"?"2〜10人でリアルタイム対戦":"REAL-TIME PARTY GAME FOR 2–10"}</span><h1>{language==="ja"?<>{"描いて、見つけて、"}<br/><em>いちばん乗り！</em></>:<>{"Draw it. Find it."}<br/><em>Be the first!</em></>}</h1><p>{language==="ja"?"友だちが描き足した「まちがい」を、誰より早く見つけよう。登録なしですぐ遊べます。":"Draw differences together, then race your friends to find them. No account needed."}</p><div className="home-actions"><button className="primary large" onClick={() => setMode("create")}>{language==="ja"?"部屋をつくる":"Create room"} <span>→</span></button><button className="secondary large" onClick={() => setMode("join")}>{language==="ja"?"部屋に参加する":"Join room"}</button></div><div className="trust-row"><span>✓ アプリ不要</span><span>✓ 登録不要</span><span>✓ スマホ対応</span></div></div><div className="hero-game-card"><div className="hero-image-wrap"><img src="/assets/bakery.png" alt="動物たちが集まるパン屋のイラスト"/><span className="found-ring ring-one">✓</span><span className="found-ring ring-two">✓</span><span className="tap-pointer">☝</span></div><div className="hero-score-row"><Avatar name="ミオ" index={1}/><p><strong>ミオが発見！</strong><br/>のこり 1こ</p><strong className="points">+100</strong></div></div>{mode&&<div className="modal-backdrop" onMouseDown={(e)=>{if(e.target===e.currentTarget)setMode(null)}}><form className="join-card modal-card" onSubmit={(e)=>{e.preventDefault();void submit()}}><button type="button" className="modal-close" onClick={()=>setMode(null)}>×</button><span className="eyebrow">{mode==="create"?"CREATE ROOM":"JOIN ROOM"}</span><h2>{mode==="create"?"新しい部屋をつくる":"部屋に参加する"}</h2><label>あなたの名前<input autoFocus value={nickname} maxLength={20} placeholder="ニックネーム" onChange={(e)=>setNickname(e.target.value)}/></label>{mode==="join"&&<label>ルームコード<input value={roomCode} maxLength={6} className="code-input" placeholder="ABC234" onChange={(e)=>setRoomCode(e.target.value.toUpperCase())}/></label>}<button className="primary" disabled={busy||!nickname.trim()||(mode==="join"&&roomCode.length!==6)}>{busy?"接続中…":mode==="create"?"部屋をつくる →":"部屋に入る →"}</button>{error&&<p className="error">{error}</p>}</form></div>}</section>;
+function Home({onSession}:{onSession:(session:Session)=>void}){
+  const t=useText();const [mode,setMode]=useState<"create"|"join"|null>(()=>new URLSearchParams(location.search).has("room")?"join":null);
+  const [nickname,setNickname]=useState("");const [code,setCode]=useState(new URLSearchParams(location.search).get("room")??"");
+  const [busy,setBusy]=useState(false);const [error,setError]=useState("");
+  const submit=async()=>{setBusy(true);setError("");try{const result=await api(mode==="create"?"/api/v1/rooms":"/api/v1/rooms/join",{nickname,roomCode:code});onSession({...result,nickname})}catch(error){setError(error instanceof Error?error.message:"ERROR")}finally{setBusy(false)}};
+  return <section className="home"><div><p className="eyebrow">2–10 PLAYERS</p><h1>{t("homeTitle")}</h1><p className="lead">{t("homeLead")}</p><div className="home-actions"><button className="primary" onClick={()=>setMode("create")}>{t("create")} →</button><button onClick={()=>setMode("join")}>{t("join")}</button></div></div><div className="hero-image"><img src="/assets/bakery.png" alt={t("animals")}/></div>
+    {mode&&<div className="modal-backdrop"><form className="modal" onSubmit={e=>{e.preventDefault();void submit()}}><h2>{t(mode)}</h2><label>{t("nickname")}<input autoFocus required maxLength={20} value={nickname} onChange={e=>setNickname(e.target.value)}/></label>{mode==="join"&&<label>{t("code")}<input required minLength={6} maxLength={6} value={code} onChange={e=>setCode(e.target.value.toUpperCase())}/></label>}<button className="primary" disabled={busy||!nickname.trim()}>{busy?t("loading"):t(mode)}</button><button type="button" onClick={()=>setMode(null)}>{t("cancel")}</button>{error&&<p role="alert">{t(errorKey(error))}</p>}</form></div>}
+  </section>;
 }
-function Loading() { return <section className="loading"><div>?</div><h2>部屋につないでいます</h2><p>そのまま少しお待ちください</p></section>; }
-
-function Game({ session, snapshot, send, leave }: { session: Session; snapshot: RoomSnapshot; send: (type: ClientCommand["type"], payload?: unknown) => void; leave: () => void }) {
-  const me = snapshot.participants.find((p) => p.id === snapshot.selfId)!;
-  if (snapshot.phase === "LOBBY") return <Lobby session={session} snapshot={snapshot} me={me} send={send} leave={leave}/>;
-  if (snapshot.phase === "DRAWING") return <Drawing snapshot={snapshot} me={me} onConfirm={(strokes) => send("difference.confirm", { strokes })}/>;
-  if (snapshot.phase === "ANSWERING") return <Answer snapshot={snapshot} onAnswer={(x,y) => send("answer.submit", { x, y })}/>;
-  if (snapshot.phase === "ROUND_RESULT") return <RoundResult snapshot={snapshot} me={me} onNext={() => send("round.continue")}/>;
-  if (snapshot.phase === "FINAL_RESULT") return <FinalResult snapshot={snapshot} me={me} onRematch={() => send("game.rematch")} leave={leave}/>;
-  return <section className="loading"><h2>ゲームを終了しました</h2><button className="primary" onClick={leave}>トップへ戻る</button></section>;
+function Game({snapshot,send,pending,leave}:{snapshot:RoomSnapshot;send:Send;pending:boolean;leave:()=>void}){
+  const t=useText();const me=snapshot.participants.find(p=>p.id===snapshot.selfId);
+  if(!me)return <button onClick={leave}>{t("leave")}</button>;
+  const props={snapshot,send,pending};
+  if(snapshot.phase==="LOBBY")return <Lobby {...props} leave={leave}/>;
+  if(snapshot.phase==="DRAWING")return <Drawing key={snapshot.gameNo+"-"+snapshot.stageNo} {...props}/>;
+  if(snapshot.phase==="COUNTDOWN")return <Countdown snapshot={snapshot}/>;
+  if(snapshot.phase==="ANSWERING")return <Answer {...props}/>;
+  if(snapshot.phase==="ROUND_RESULT"||snapshot.phase==="FINAL_RESULT")return <Results {...props} leave={leave}/>;
+  return <section className="loading"><h1>{t("ended")}</h1><button onClick={leave}>{t("leave")}</button></section>;
 }
-
-function Lobby({ session, snapshot, me, send, leave }: { session: Session; snapshot: RoomSnapshot; me: RoomSnapshot["participants"][number]; send: (type: ClientCommand["type"], payload?: unknown) => void; leave: () => void }) {
-  const invite = `${location.origin}${location.pathname}?room=${snapshot.roomCode}`;
-  const [settings,setSettings]=useState(snapshot.settings); const [imageUrl,setImageUrl]=useState(snapshot.imageUrl);
-  const images=[['/assets/bakery.png','パン屋'],['/assets/harbor.png','港'],['/assets/camping.png','キャンプ'],['/assets/space.png','宇宙'],['/assets/onsen.png','温泉']];
-  return <section className="room-page"><div className="room-heading"><div><span className="eyebrow">WAITING ROOM</span><h1>みんなが揃ったら、はじめよう</h1></div><button className="text-button" onClick={leave}>退出する</button></div><div className="lobby-grid"><aside className="invite-card"><small>ROOM CODE</small><strong>{snapshot.roomCode}</strong><QRCodeSVG className="real-qr" value={invite} size={150}/><button className="secondary" onClick={() => void navigator.clipboard.writeText(invite)}><Copy size={16}/> 招待URLをコピー</button><p>友達にコードかURLを送ってね</p></aside><div className="members-card"><div className="panel-title"><h2>参加メンバー</h2><span>{snapshot.participants.length} / 10人</span></div><ul>{snapshot.participants.map((p, index) => <li key={p.id}><Avatar name={p.nickname} index={index}/><div><strong>{p.nickname}{p.id === me.id && "（あなた）"}</strong></div>{p.isHost && <span className="host"><Crown size={13}/> HOST</span>}{me.isHost && !p.isHost && <button className="kick" onClick={() => send("member.kick", { participantId: p.id })}>退出</button>}</li>)}</ul>{me.isHost&&<div className="game-settings"><h3>ゲーム設定</h3><label>イラスト<select value={imageUrl} onChange={e=>setImageUrl(e.target.value)}>{images.map(([src,name])=><option key={src} value={src}>{name}</option>)}</select></label><label>1人あたりの間違い数 <input type="number" min="1" max="5" value={settings.differencesPerPlayer} onChange={e=>setSettings({...settings,differencesPerPlayer:Number(e.target.value)})}/></label><label>描く時間 <select value={settings.drawingSeconds} onChange={e=>setSettings({...settings,drawingSeconds:Number(e.target.value)})}>{[30,60,90,120,180,300].map(v=><option key={v} value={v}>{v}秒</option>)}</select></label><label>回答時間 <select value={settings.answeringSeconds} onChange={e=>setSettings({...settings,answeringSeconds:Number(e.target.value)})}>{[30,45,60,90,120,180,300].map(v=><option key={v} value={v}>{v}秒</option>)}</select></label><button className="secondary" onClick={()=>send("settings.update",{differencesPerPlayer:settings.differencesPerPlayer,drawingSeconds:settings.drawingSeconds,answeringSeconds:settings.answeringSeconds,imageUrl})}>設定を保存</button></div>}<div className="lobby-actions"><p>{snapshot.participants.length < 2 ? "あと1人で開始できます" : "準備OK！"}</p>{me.isHost ? <button className="primary" disabled={snapshot.participants.length < 2} onClick={() => send("game.start")}>ゲームをはじめる →</button> : <div className="waiting-pill">ホストの開始を待っています</div>}</div></div></div></section>;
+function Lobby({snapshot,send,pending,leave}:{snapshot:RoomSnapshot;send:Send;pending:boolean;leave:()=>void}){
+  const t=useText();const me=snapshot.participants.find(p=>p.id===snapshot.selfId)!;
+  const invite=location.origin+location.pathname+"?room="+snapshot.roomCode;const [copied,setCopied]=useState(false);
+  const update=(key:string,value:number|string)=>void send("settings.update",{[key]:value}).catch(()=>{});
+  return <section className="lobby"><div className="section-head"><h1>{t("members")}</h1><button onClick={leave}>{t("leave")}</button></div>
+    <div className="lobby-grid"><aside className="invite-card"><span>{t("code")}</span><strong>{snapshot.roomCode}</strong><QRCodeSVG className="real-qr" value={invite} size={160} marginSize={4} title={t("invite")}/><button onClick={async()=>{try{await navigator.clipboard.writeText(invite);setCopied(true)}catch{setCopied(false)}}}><Copy/>{t(copied?"copied":"invite")}</button></aside>
+    <div className="members-card"><ul className="member-list">{snapshot.participants.map(p=><li key={p.id}><Avatar name={p.nickname}/><strong>{p.nickname} {p.id===me.id&&"("+t("you")+")"}</strong>{p.isHost&&<span className="host-tag"><Crown/>{t("host")}</span>}{me.isHost&&!p.isHost&&<button onClick={()=>void send("member.kick",{participantId:p.id}).catch(()=>{})}>{t("leave")}</button>}</li>)}</ul>
+      <fieldset className="settings" disabled={!me.isHost}><label>{t("rounds")}<select value={snapshot.settings.stageCount} onChange={e=>update("stageCount",Number(e.target.value))}>{Array.from({length:10},(_,i)=><option key={i} value={i+1}>{i+1}</option>)}</select></label>
+      <label>{t("differences")}<select value={snapshot.settings.differencesPerPlayer} onChange={e=>update("differencesPerPlayer",Number(e.target.value))}>{[1,2,3,4,5].map(v=><option key={v}>{v}</option>)}</select></label>
+      {(["drawingSeconds","answeringSeconds"] as const).map(key=><label key={key}>{t(key==="drawingSeconds"?"drawTime":"answerTime")}<select value={snapshot.settings[key]} onChange={e=>update(key,Number(e.target.value))}>{[30,45,60,90,120,180,300].map(v=><option key={v} value={v}>{t("seconds",{n:v})}</option>)}</select></label>)}
+      </fieldset><p className="muted" role="status">{t(pending?"saving":"saved")}</p>
+      <section className="deck-card"><h2>{t("deck")}: {t("animals")}</h2><p>{t("randomHint")}</p><div className="deck-thumbnails">{IMAGES.map(image=><img key={image.id} src={image.src} alt={t("animals")}/>)}</div></section>
+      {me.isHost?<button className="primary start" disabled={pending||snapshot.participants.filter(p=>p.connected).length<2} onClick={()=>void send("game.start").catch(()=>{})}>{t("start")} →</button>:<p>{t("waiting")}</p>}
+      {snapshot.participants.filter(p=>p.connected).length<2&&<p className="muted">{t("enough")}</p>}
+    </div></div>
+  </section>;
 }
-function Avatar({ name, index=0 }: { name: string; index?: number }) { return <span className={`avatar c${index%4}`}>{name.slice(0,1).toUpperCase()}</span>; }
-
-function useCountdown(endsAt?: string) {
-  const [now, setNow] = useState(Date.now());
-  useEffect(() => { const timer = window.setInterval(() => setNow(Date.now()), 250); return () => clearInterval(timer); }, []);
-  return endsAt ? Math.max(0, Math.ceil((new Date(endsAt).getTime() - now) / 1000)) : 0;
+function Avatar({name}:{name:string}){return <span className="avatar">{Array.from(name)[0]}</span>}
+function useNow(){const [now,setNow]=useState(Date.now());useEffect(()=>{const timer=setInterval(()=>setNow(Date.now()),200);return()=>clearInterval(timer)},[]);return now}
+function Timer({endsAt}:{endsAt?:string}){const now=useNow();const seconds=endsAt?Math.max(0,Math.ceil((Date.parse(endsAt)-now)/1000)):0;return <time className={"timer "+(seconds<15?"danger":"")}>{String(Math.floor(seconds/60)).padStart(2,"0")}:{String(seconds%60).padStart(2,"0")}</time>}
+function PhaseHeader({snapshot,title,send,pending}:{snapshot:RoomSnapshot;title:"drawing"|"find";send:Send;pending:boolean}){
+  const t=useText();const host=snapshot.participants.find(p=>p.id===snapshot.selfId)?.isHost;
+  return <div className="phase-header"><div><span className="eyebrow">{t("round",{n:snapshot.stageNo})} / {snapshot.stageCount}</span><h1>{t(title)}</h1></div><Timer endsAt={snapshot.phaseEndsAt}/>{host&&<button className="advance" disabled={pending} onClick={()=>{if(confirm(t("advanceConfirm")))void send("phase.advance").catch(()=>{})}}>{t("advance")}</button>}</div>;
 }
-function Timer({ endsAt }: { endsAt?: string }) { const seconds = useCountdown(endsAt); return <div className={`timer ${seconds < 15 ? "danger" : ""}`}><small>のこり</small><strong>{String(Math.floor(seconds/60)).padStart(2,"0")}:{String(seconds%60).padStart(2,"0")}</strong></div>; }
-
-function Drawing({ snapshot, me, onConfirm }: { snapshot: RoomSnapshot; me: RoomSnapshot["participants"][number]; onConfirm: (strokes: Stroke[]) => void }) {
-  const [strokes, setStrokes] = useState<Stroke[]>([]); const [color, setColor] = useState("#ff6651"); const [width, setWidth] = useState(.008); const [zoom, setZoom] = useState(1); const [pan, setPan] = useState({x:0,y:0}); const [panMode,setPanMode]=useState(false); const canvasRef=useRef<HTMLCanvasElement>(null); const current=useRef<Stroke|null>(null); const drag=useRef<{x:number;y:number;panX:number;panY:number}|null>(null); const pinch=useRef<{d:number;z:number}|null>(null);
-  const redraw=useCallback(() => { const canvas=canvasRef.current; if(!canvas)return; const rect=canvas.parentElement!.getBoundingClientRect(); const dpr=devicePixelRatio; if(canvas.width!==Math.round(rect.width*dpr)||canvas.height!==Math.round(rect.height*dpr)){canvas.width=Math.round(rect.width*dpr);canvas.height=Math.round(rect.height*dpr);} const ctx=canvas.getContext("2d")!;ctx.setTransform(dpr,0,0,dpr,0,0);ctx.clearRect(0,0,rect.width,rect.height);for(const stroke of strokes)drawSmoothStroke(ctx,stroke,rect.width,rect.height);if(current.current)drawSmoothStroke(ctx,current.current,rect.width,rect.height);},[strokes]);
-  useEffect(()=>{redraw(); const listener=()=>redraw();addEventListener("resize",listener);return()=>removeEventListener("resize",listener)},[redraw]);
-  const point=(e:{clientX:number;clientY:number})=>{const rect=canvasRef.current!.getBoundingClientRect();return{x:Math.max(0,Math.min(1,(e.clientX-rect.left)/rect.width)),y:Math.max(0,Math.min(1,(e.clientY-rect.top)/rect.height)),t:Date.now()}};
-  const pointerDown=(e:React.PointerEvent)=>{if(me.confirmed)return;if(panMode){drag.current={x:e.clientX,y:e.clientY,panX:pan.x,panY:pan.y};e.currentTarget.setPointerCapture(e.pointerId);return} current.current={id:commandId(),color,width,points:[point(e)]};e.currentTarget.setPointerCapture(e.pointerId);redraw()};
-  const pointerMove=(e:React.PointerEvent)=>{if(drag.current){setPan({x:drag.current.panX+e.clientX-drag.current.x,y:drag.current.panY+e.clientY-drag.current.y});return}if(!current.current)return;const p=point(e),last=current.current.points.at(-1)!;if(Math.hypot(p.x-last.x,p.y-last.y)>.002){current.current.points.push({...p,t:p.t-current.current.points[0]!.t});redraw()}};
-  const pointerUp=()=>{drag.current=null;if(!current.current)return;setStrokes((value)=>[...value,current.current!]);current.current=null};
-  const wheel=(e:React.WheelEvent)=>{e.preventDefault();setZoom((z)=>Math.max(1,Math.min(6,z*Math.exp(-e.deltaY*.002))))};
-  const touchStart=(e:React.TouchEvent)=>{if(e.touches.length===2){pinch.current={d:Math.hypot(e.touches[0]!.clientX-e.touches[1]!.clientX,e.touches[0]!.clientY-e.touches[1]!.clientY),z:zoom};current.current=null}};
-  const touchMove=(e:React.TouchEvent)=>{if(e.touches.length===2&&pinch.current){const d=Math.hypot(e.touches[0]!.clientX-e.touches[1]!.clientX,e.touches[0]!.clientY-e.touches[1]!.clientY);setZoom(Math.max(1,Math.min(6,pinch.current.z*d/pinch.current.d)))}};
-  return <section className="game-page"><div className="game-bar"><div><span className="stage-tag">ROUND {snapshot.stageNo} / {snapshot.stageCount}</span><h1>絵に間違いを1つ描こう</h1></div><Timer endsAt={snapshot.phaseEndsAt}/></div><div className="drawing-layout"><div className="canvas-card"><div className="canvas-tools"><div className="colors">{["#ff6651","#17375e","#55b99d","#f1b82d","#9b5de5","#111111"].map(c=><button key={c} className={color===c?"selected":""} style={{background:c}} aria-label={`色 ${c}`} onClick={()=>setColor(c)}/>) }<input type="color" value={color} onChange={e=>setColor(e.target.value)}/><button className="icon-tool" aria-label="画面から色を選ぶ" title="画面から色を選ぶ" onClick={async()=>{const Picker=(window as unknown as {EyeDropper?:new()=>{open:()=>Promise<{sRGBHex:string}>}}).EyeDropper;if(Picker)try{setColor((await new Picker().open()).sRGBHex)}catch{/* canceled */}}}><Pipette/></button></div><label>太さ<input type="range" min="1" max="30" value={Math.round(width*1000)} onChange={e=>setWidth(Number(e.target.value)/1000)}/></label><div className="zoom-controls"><button onClick={()=>setZoom(z=>Math.max(1,z-.25))}><Minus/></button><b>{Math.round(zoom*100)}%</b><button onClick={()=>setZoom(z=>Math.min(6,z+.25))}><Plus/></button><button className={!panMode?"active":""} onClick={()=>setPanMode(false)}><Pencil/> 描画</button><button className={panMode?"active":""} onClick={()=>setPanMode(true)}><Hand/> 移動</button><button onClick={()=>{setZoom(1);setPan({x:0,y:0})}}><RotateCcw/> 全体</button></div></div><div className="draw-viewport" onWheel={wheel} onTouchStart={touchStart} onTouchMove={touchMove}><div className="draw-layer" style={{transform:`translate(${pan.x}px,${pan.y}px) scale(${zoom})`}}><img src={snapshot.imageUrl}/><canvas ref={canvasRef} onPointerDown={pointerDown} onPointerMove={pointerMove} onPointerUp={pointerUp} onPointerCancel={pointerUp}/></div>{!strokes.length&&!me.confirmed&&<span className="draw-help">指やマウスで描いてね</span>}</div></div><aside className="draw-side"><span className="eyebrow">YOUR DIFFERENCE</span><h2>{me.confirmed?"確定しました！":"見つけにくい場所へ描こう"}</h2><p>スマホは2本指、PCはホイールで拡大できます。元の絵は消えません。</p><button className="primary" disabled={me.confirmed||!strokes.length} onClick={()=>{onConfirm(strokes);setStrokes([])}}>{me.confirmed?<><Check/> 確定済み</>:"この間違いを確定 →"}</button><div className="draw-actions"><button className="secondary" disabled={me.confirmed||!strokes.length} onClick={()=>setStrokes(v=>v.slice(0,-1))}>1本戻す</button><button className="secondary" disabled={me.confirmed||!strokes.length} onClick={()=>setStrokes([])}>全部消す</button></div><div className="confirm-list">{snapshot.participants.map(p=><span key={p.id} className={p.confirmed?"done":""}><Avatar name={p.nickname}/>{p.nickname}<b>{p.confirmed?"✓":"…"}</b></span>)}</div></aside></div></section>;
+function ZoomControls({view,onView}:{view:View;onView:(value:View)=>void}){
+  const t=useText();return <div className="zoom-controls"><label>{t("zoom")} <input aria-label={t("zoom")} type="range" min={GAME_DEFAULTS.zoomMin} max={GAME_DEFAULTS.zoomMax} step=".05" value={view.zoom} onChange={e=>onView({...view,zoom:Number(e.target.value)})}/><output>{Math.round(view.zoom*100)}%</output></label><button onClick={()=>onView(initialView)}><RotateCcw/>{t("reset")}</button></div>;
 }
-
-function PaintOverlay({ differences }: { differences: Difference[] }) { const ref=useRef<HTMLCanvasElement>(null); useEffect(()=>{const canvas=ref.current;if(!canvas)return;const resize=()=>{const rect=canvas.parentElement!.getBoundingClientRect();const dpr=devicePixelRatio;canvas.width=Math.round(rect.width*dpr);canvas.height=Math.round(rect.height*dpr);const ctx=canvas.getContext("2d")!;ctx.setTransform(dpr,0,0,dpr,0,0);for(const difference of differences)for(const stroke of difference.strokes)drawSmoothStroke(ctx,stroke,rect.width,rect.height)};resize();addEventListener("resize",resize);return()=>removeEventListener("resize",resize)},[differences]);return <canvas ref={ref}/>; }
-function ImageBoard({ snapshot, changed, view, setView, onAnswer, panMode=false, showMarks=true }: { snapshot: RoomSnapshot; changed: boolean; view:{zoom:number;x:number;y:number}; setView:(v:{zoom:number;x:number;y:number})=>void; onAnswer?:(x:number,y:number)=>void; panMode?:boolean; showMarks?:boolean }) {
- const drag=useRef<{x:number;y:number;vx:number;vy:number}|null>(null);const pinch=useRef<{d:number;z:number}|null>(null);const moved=useRef(false);
- const wheel=(e:React.WheelEvent)=>{e.preventDefault();setView({...view,zoom:Math.max(1,Math.min(6,view.zoom*Math.exp(-e.deltaY*.002)))})};
- const down=(e:React.PointerEvent)=>{if(!panMode||view.zoom<=1)return;drag.current={x:e.clientX,y:e.clientY,vx:view.x,vy:view.y};moved.current=false;e.currentTarget.setPointerCapture(e.pointerId)};const move=(e:React.PointerEvent)=>{if(!drag.current)return;const dx=e.clientX-drag.current.x,dy=e.clientY-drag.current.y;moved.current=Math.abs(dx)+Math.abs(dy)>4;setView({...view,x:drag.current.vx+dx,y:drag.current.vy+dy})};
- const click=(e:React.MouseEvent)=>{if(!changed||panMode||moved.current||!onAnswer)return;const rect=e.currentTarget.getBoundingClientRect();const cx=rect.width/2,cy=rect.height/2;onAnswer((((e.clientX-rect.left)-cx-view.x)/view.zoom+cx)/rect.width,(((e.clientY-rect.top)-cy-view.y)/view.zoom+cy)/rect.height)};
- const ts=(e:React.TouchEvent)=>{if(e.touches.length===2){pinch.current={d:Math.hypot(e.touches[0]!.clientX-e.touches[1]!.clientX,e.touches[0]!.clientY-e.touches[1]!.clientY),z:view.zoom};moved.current=true}};const tm=(e:React.TouchEvent)=>{if(e.touches.length===2&&pinch.current){const d=Math.hypot(e.touches[0]!.clientX-e.touches[1]!.clientX,e.touches[0]!.clientY-e.touches[1]!.clientY);setView({...view,zoom:Math.max(1,Math.min(6,pinch.current.z*d/pinch.current.d))})}};
- return <div className={`answer-card ${changed?"changed":""}`}><span>{changed?"変わった絵":"もとの絵"}</span><div className="answer-viewport" onWheel={wheel} onPointerDown={down} onPointerMove={move} onPointerUp={()=>drag.current=null} onClick={click} onTouchStart={ts} onTouchMove={tm}><div className="answer-layer" style={{transform:`translate(${view.x}px,${view.y}px) scale(${view.zoom})`}}><img src={snapshot.imageUrl}/>{changed&&<PaintOverlay differences={snapshot.differences}/>} {changed&&showMarks&&snapshot.differences.filter(d=>d.foundBy).map(d=>{const p=d.strokes[0]?.points[0];return p?<i className="found" key={d.id} style={{left:`${p.x*100}%`,top:`${p.y*100}%`}}>✓</i>:null})}</div></div></div>;
+function Drawing({snapshot,send,pending}:{snapshot:RoomSnapshot;send:Send;pending:boolean}){
+  const t=useText();const me=snapshot.participants.find(p=>p.id===snapshot.selfId)!;
+  const [drafts,setDrafts]=useState<Stroke[]>([]);const [view,setView]=useState<View>(initialView);
+  const [tool,setTool]=useState<Tool>("draw");const [color,setColor]=useState("#111111");const [width,setWidth]=useState(.008);
+  const [submitting,setSubmitting]=useState(false);const count=me.confirmedCount??0;
+  const confirmDraft=async()=>{if(!drafts.length||submitting)return;setSubmitting(true);try{await send("difference.confirm",{strokes:drafts});setDrafts([])}catch{/* Retain the draft until an authoritative acknowledgement. */}finally{setSubmitting(false)}};
+  return <section><PhaseHeader snapshot={snapshot} title="drawing" send={send} pending={pending}/>
+    <div className="toolbar">
+      <div className="mode-controls"><button aria-pressed={tool==="draw"} onClick={()=>setTool("draw")}><Pencil/>{t("pen")}</button><button aria-pressed={tool==="move"} onClick={()=>setTool("move")}><Hand/>{t("move")}</button><button aria-pressed={tool==="pick"} aria-label={t("pick")} title={t("pick")} onClick={()=>setTool("pick")}><Pipette/></button></div>
+      <div className="pen-controls"><label>{t("color")}<input aria-label={t("color")} type="color" value={color} onChange={e=>setColor(e.target.value)}/></label>{["#000000","#ffffff"].map(c=><button key={c} className="swatch" style={{background:c}} aria-label={c} aria-pressed={color===c} onClick={()=>setColor(c)}/>)}<label>{t("width")}<input aria-label={t("width")} type="range" min={1} max={30} step={1} value={width*1000} onChange={e=>setWidth(Number(e.target.value)/1000)}/></label><span className="pen-preview" aria-label={t("color")+" "+color+" / "+t("width")+" "+Math.round(width*1000)}><i style={{background:color,height:Math.max(1,width*1000)}}/>{color} · {Math.round(width*1000)}</span></div>
+      <ZoomControls view={view} onView={setView}/>
+      <div className="draft-actions"><button disabled={!drafts.length||submitting} onClick={()=>setDrafts(value=>value.slice(0,-1))}><Undo2/>{t("undo")}</button><button disabled={!drafts.length||submitting} onClick={()=>setDrafts([])}><Trash2/>{t("clear")}</button></div>
+    </div>
+    <Board imageUrl={snapshot.imageUrl} differences={snapshot.differences} drafts={drafts} view={view} onView={setView} tool={tool} color={color} width={width} disabled={me.confirmed||submitting} onStroke={stroke=>setDrafts(value=>value.length<LIMITS.maxStrokes?[...value,stroke]:value)} onPick={c=>{setColor(c);setTool("draw")}}/>
+    <div className="drawing-footer"><div><strong data-testid="confirmed-progress">{t("progress",{n:count,total:snapshot.settings.differencesPerPlayer})}</strong><p className="muted">{t("submittedHint")}</p></div><button className="primary" disabled={me.confirmed||!drafts.length||submitting} onClick={()=>void confirmDraft()}>{me.confirmed?<><Check/>{t("confirmed")}</>:submitting?t("saving"):t("confirm")}</button></div>
+    <div className="progress-list">{snapshot.participants.map(p=><span key={p.id}>{p.nickname}: {p.confirmedCount??0}/{snapshot.settings.differencesPerPlayer}{p.confirmed?" ✓":""}</span>)}</div>
+  </section>;
 }
-function Answer({ snapshot, onAnswer }: { snapshot: RoomSnapshot; onAnswer:(x:number,y:number)=>void }) { const [view,setView]=useState({zoom:1,x:0,y:0});const [panMode,setPanMode]=useState(false);const [showMarks,setShowMarks]=useState(true);const found=snapshot.differences.filter(d=>d.foundBy).length;return <section className="game-page answer-page"><div className="game-bar"><div><span className="stage-tag">ROUND {snapshot.stageNo} / {snapshot.stageCount}</span><h1>みんなの間違いを見つけよう！</h1></div><div className="answer-status"><b>{found}</b> / {snapshot.differences.length} 発見 <Timer endsAt={snapshot.phaseEndsAt}/></div></div><div className="answer-tools"><label className="answer-mark-toggle"><input type="checkbox" checked={showMarks} onChange={e=>setShowMarks(e.target.checked)}/>正解マーク</label><button className={!panMode?"active":""} onClick={()=>setPanMode(false)}><Eye/> 回答</button><button className={panMode?"active":""} onClick={()=>setPanMode(true)}><Hand/> 移動</button><button onClick={()=>setView(v=>({...v,zoom:Math.max(1,v.zoom-.25)}))}><Minus/></button><b>{Math.round(view.zoom*100)}%</b><button onClick={()=>setView(v=>({...v,zoom:Math.min(6,v.zoom+.25)}))}><Plus/></button><button onClick={()=>setView({zoom:1,x:0,y:0})}><RotateCcw/> 全体表示</button><small>2本指ピンチ / ホイール対応・2枚が同期します</small></div><div className="compare"><ImageBoard snapshot={snapshot} changed={false} view={view} setView={setView} panMode={panMode}/><ImageBoard snapshot={snapshot} changed view={view} setView={setView} onAnswer={onAnswer} panMode={panMode} showMarks={showMarks}/></div><div className="scorebar">{snapshot.participants.map((p,i)=><div key={p.id}><Avatar name={p.nickname} index={i}/><span>{p.nickname}<b>{p.score}</b></span></div>)}</div></section>; }
-
-function RoundResult({ snapshot, me, onNext }: { snapshot: RoomSnapshot; me: RoomSnapshot["participants"][number]; onNext:()=>void }) {const [showMarks,setShowMarks]=useState(true);return <section className="result-page"><div><span className="eyebrow">ROUND RESULT</span><h1>{snapshot.differences.every(d=>d.foundBy)?"全部見つかりました！":"時間になりました！"}</h1><p>正解位置とみんなの得点を確認しよう。</p><ScoreList snapshot={snapshot}/>{me.isHost?<button className="primary" onClick={onNext}>{snapshot.stageNo>=snapshot.stageCount?"最終結果を見る":"次のラウンドへ"} →</button>:<div className="waiting-pill">ホストの操作を待っています</div>}</div><div><label className="marker-toggle"><input type="checkbox" checked={showMarks} onChange={e=>setShowMarks(e.target.checked)}/>{showMarks?<Eye/>:<EyeOff/>} 正解マークを表示</label><div className="result-image"><img src={snapshot.imageUrl}/><PaintOverlay differences={snapshot.differences}/>{showMarks&&snapshot.differences.map(d=>{const p=d.strokes[0]?.points[0];return p?<i key={d.id} style={{left:`${p.x*100}%`,top:`${p.y*100}%`}}>✓</i>:null})}</div></div></section>}
-function ScoreList({snapshot}:{snapshot:RoomSnapshot}){return <ol className="ranking">{[...snapshot.participants].sort((a,b)=>b.score-a.score).map((p,i)=><li key={p.id}><b>{i+1}</b><Avatar name={p.nickname} index={i}/><span>{p.nickname}{p.isHost&&<small>HOST</small>}</span><strong>{p.score} pt</strong></li>)}</ol>}
-function FinalResult({ snapshot, me, onRematch, leave }: {snapshot:RoomSnapshot;me:RoomSnapshot["participants"][number];onRematch:()=>void;leave:()=>void}){const [filter,setFilter]=useState("all");const shown=filter==="all"?snapshot.differences:snapshot.differences.filter(d=>d.creatorId===filter);return <section className="final-page"><span className="confetti">● ★ ▲ ● ★</span><h1>最終結果</h1><ScoreList snapshot={snapshot}/><div className="gallery"><div className="gallery-tabs"><button className={filter==="all"?"active":""} onClick={()=>setFilter("all")}>全部入り</button>{snapshot.participants.map(p=><button key={p.id} className={filter===p.id?"active":""} onClick={()=>setFilter(p.id)}>{p.nickname}</button>)}</div><div className="result-image"><img src={snapshot.imageUrl}/><PaintOverlay differences={shown}/></div></div><div className="final-actions"><a className="share-button" target="_blank" rel="noreferrer" href={`https://twitter.com/intent/tweet?text=${encodeURIComponent("まちがいパーティーで遊んだよ！ #まちがいパーティー")}`}><Share2/> Xで結果をシェア</a>{me.isHost?<button className="primary" onClick={onRematch}>同じメンバーでもう一度</button>:<div className="waiting-pill">ホストの操作を待っています</div>}<button className="secondary" onClick={leave}>トップへ戻る</button></div></section>}
+function Countdown({snapshot}:{snapshot:RoomSnapshot}){const t=useText();const now=useNow();const n=Math.max(0,Math.ceil((Date.parse(snapshot.phaseEndsAt!)-now)/1000));return <section className="countdown" role="status"><h1>{t("countdown")}</h1><strong>{n||"…"}</strong></section>}
+function Answer({snapshot,send,pending}:{snapshot:RoomSnapshot;send:Send;pending:boolean}){
+  const t=useText();const [view,setView]=useState<View>(initialView);const [tool,setTool]=useState<Tool>("answer");const [marks,setMarks]=useState(true);
+  const now=useNow();const me=snapshot.participants.find(p=>p.id===snapshot.selfId)!;const cooldown=Math.max(0,Math.ceil((Date.parse(me.answerBlockedUntil??"")-now)/1000)||0);
+  return <section><PhaseHeader snapshot={snapshot} title="find" send={send} pending={pending}/><div className="toolbar"><div className="mode-controls"><button aria-pressed={tool==="answer"} onClick={()=>setTool("answer")}><Eye/>{t("answer")}</button><button aria-pressed={tool==="move"} onClick={()=>setTool("move")}><Hand/>{t("move")}</button></div><ZoomControls view={view} onView={setView}/><label className="check-label"><input type="checkbox" checked={marks} onChange={e=>setMarks(e.target.checked)}/>{t("marks")}</label><strong>{snapshot.differences.filter(d=>d.foundBy).length}/{snapshot.differences.length}</strong></div>
+    {cooldown>0&&<p className="cooldown" role="status">{t("cooldown",{n:cooldown})}</p>}
+    <div className="compare">{[false,true].map(changed=><Board key={String(changed)} imageUrl={snapshot.imageUrl} differences={changed?snapshot.differences:[]} view={view} onView={setView} tool={tool} label={t(changed?"changed":"original")} marks={marks} disabled={cooldown>0} onAnswer={(x,y)=>void send("answer.submit",{x,y}).catch(()=>{})}/>)}</div><Scores snapshot={snapshot}/>
+  </section>;
+}
+function Scores({snapshot}:{snapshot:RoomSnapshot}){
+  return <ol className="scores">{[...snapshot.participants].sort((a,b)=>b.score-a.score).map((p,i)=><li key={p.id}><b>{i+1}</b><Avatar name={p.nickname}/><span>{p.nickname}</span><strong>{p.score} pt</strong></li>)}</ol>;
+}
+function Results({snapshot,send,pending,leave}:{snapshot:RoomSnapshot;send:Send;pending:boolean;leave:()=>void}){
+  const t=useText();const [filter,setFilter]=useState("all");const [roundNo,setRoundNo]=useState(snapshot.stageNo);const [view,setView]=useState<View>(initialView);const [marks,setMarks]=useState(false);
+  const isFinal=snapshot.phase==="FINAL_RESULT",me=snapshot.participants.find(p=>p.id===snapshot.selfId)!;
+  const round=snapshot.rounds?.find(r=>r.stageNo===roundNo)??{stageNo:snapshot.stageNo,imageUrl:snapshot.imageUrl,differences:snapshot.differences};
+  const shown=filter==="all"?round.differences:round.differences.filter(d=>d.creatorId===filter);
+  return <section className="results"><div className="result-header"><span className="eyebrow">{t("round",{n:round.stageNo})}</span><h1>{t(isFinal?"final":"result")}</h1></div>
+    <div className="result-layout"><div className="review"><div className="gallery-tabs">{isFinal&&(snapshot.rounds??[]).map(r=><button key={r.stageNo} aria-pressed={roundNo===r.stageNo} onClick={()=>{setRoundNo(r.stageNo);setView(initialView)}}>{t("round",{n:r.stageNo})}</button>)}</div>
+      <div className="gallery-tabs"><button aria-pressed={filter==="all"} onClick={()=>setFilter("all")}>{t("all")}</button>{snapshot.participants.map(p=><button key={p.id} aria-pressed={filter===p.id} onClick={()=>setFilter(p.id)}>{p.nickname}</button>)}</div>
+      <div className="toolbar"><ZoomControls view={view} onView={setView}/><label className="check-label"><input type="checkbox" checked={marks} onChange={e=>setMarks(e.target.checked)}/>{t("marks")}</label></div>
+      <div className="compare"><Board imageUrl={round.imageUrl} view={view} onView={setView} label={t("original")}/><Board imageUrl={round.imageUrl} differences={shown} view={view} onView={setView} label={t("changed")} marks={marks} persistentMarks/></div>
+      <SharePanel imageUrl={round.imageUrl} differences={shown}/>
+    </div><aside><Scores snapshot={snapshot}/><div className="result-actions">{me.isHost?<button className="primary" disabled={pending} onClick={()=>void send(isFinal?"game.rematch":"round.continue").catch(()=>{})}>{t(isFinal?"rematch":snapshot.stageNo>=snapshot.stageCount?"viewFinal":"next")}</button>:<p>{t("waiting")}</p>}<button onClick={leave}>{t("leave")}</button></div></aside></div>
+  </section>;
+}
+function SharePanel({imageUrl,differences}:{imageUrl:string;differences:Difference[]}){
+  const t=useText();const language=useContext(LanguageContext);const [blob,setBlob]=useState<Blob|null>(null);const [preview,setPreview]=useState("");const [error,setError]=useState(false);
+  const signature=differences.map(d=>d.id).join(",");
+  useEffect(()=>{let active=true,url="";setBlob(null);setPreview("");setError(false);
+    void makeShareImage(imageUrl,differences,{title:t("app"),count:t("shareCount",{n:differences.length}),original:t("original"),changed:t("changed")}).then(result=>{if(active){url=URL.createObjectURL(result);setBlob(result);setPreview(url)}}).catch(()=>{if(active)setError(true)});
+    return()=>{active=false;if(url)URL.revokeObjectURL(url)};
+  },[imageUrl,signature,language]);
+  const share=async()=>{if(!blob)return;const file=new File([blob],"difference-party.png",{type:"image/png"});
+    try{if(navigator.canShare?.({files:[file]}))await navigator.share({files:[file],title:t("app"),text:t("shareCount",{n:differences.length})});else downloadImage(blob)}catch(error){if(!(error instanceof DOMException&&error.name==="AbortError"))setError(true)}
+  };
+  const xUrl="https://twitter.com/intent/tweet?text="+encodeURIComponent(t("shareCount",{n:differences.length})+" #DifferenceParty");
+  return <section className="share-panel"><div className="share-actions"><button disabled={!blob} onClick={()=>void share()}><Share2/>{t("share")}</button><button disabled={!blob} onClick={()=>blob&&downloadImage(blob)}><Download/>{t("download")}</button><a href={xUrl} target="_blank" rel="noreferrer">{t("xHint")}</a></div><p className="muted">{t("shareHint")}</p>{error&&<p role="alert">{t("error")}</p>}{preview&&<details><summary>{t("shareCount",{n:differences.length})}</summary><img className="share-preview" src={preview} alt={t("shareCount",{n:differences.length})}/></details>}</section>;
+}

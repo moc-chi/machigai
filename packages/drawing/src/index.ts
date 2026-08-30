@@ -1,4 +1,5 @@
 import type { DifferenceInput, Point, Stroke } from "@machigai/shared";
+export { imagePoint, zoomView, type View } from "./view";
 
 export type Capsule = { ax: number; ay: number; bx: number; by: number; radius: number };
 export type HitRegion = { minX: number; minY: number; maxX: number; maxY: number; capsules: Capsule[] };

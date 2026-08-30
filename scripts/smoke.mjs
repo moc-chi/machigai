@@ -1,19 +1,48 @@
-const base = process.env.BASE_URL ?? "http://127.0.0.1:8787";
-const socketBase = base.replace(/^http/, "ws");
-const post = async (path, body) => { const response = await fetch(base + path, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify(body) }); if (!response.ok) throw new Error(`${path}: ${response.status} ${await response.text()}`); return response.json(); };
-const host = await post("/api/v1/rooms", { nickname: "Host" });
-const two = await post("/api/v1/rooms/join", { nickname: "Two", roomCode: host.roomCode });
-const users = [host, two]; const states = new Map();
-const waitFor = (test, timeout = 5000) => new Promise((resolve, reject) => { const start = Date.now(); const timer = setInterval(() => { const result = test(); if (result) { clearInterval(timer); resolve(result); } else if (Date.now() - start > timeout) { clearInterval(timer); reject(new Error("Timed out")); } }, 20); });
-for (const user of users) { const ws = new WebSocket(`${socketBase}${user.socketUrl}`); user.ws = ws; ws.addEventListener("message", (event) => { const message = JSON.parse(event.data); if (message.type === "state.snapshot") states.set(user.participantId, message.payload); }); await new Promise((resolve) => ws.addEventListener("open", resolve, { once: true })); ws.send(JSON.stringify({ type: "session.resume", commandId: crypto.randomUUID(), payload: { participantId: user.participantId, reconnectSecret: user.reconnectSecret } })); }
-await waitFor(() => states.get(host.participantId)?.participants.length === 2);
-host.ws.send(JSON.stringify({ type: "settings.update", commandId: crypto.randomUUID(), payload: { differencesPerPlayer: 2, drawingSeconds: 60, answeringSeconds: 60, imageUrl: "/assets/harbor.png" } }));
-await waitFor(() => states.get(host.participantId)?.settings.differencesPerPlayer === 2);
-host.ws.send(JSON.stringify({ type: "game.start", commandId: crypto.randomUUID(), payload: {} }));
-await waitFor(() => states.get(host.participantId)?.phase === "DRAWING");
-for (let round = 0; round < 2; round += 1) for (let index = 0; index < users.length; index += 1) { const x = .15 + index * .3 + round * .1; users[index].ws.send(JSON.stringify({ type: "difference.confirm", commandId: crypto.randomUUID(), payload: { strokes: [{ id: `s${round}-${index}`, color: "#ff6651", width: .01, points: [{ x, y: .3, t: 0 }, { x: x + .04, y: .34, t: 20 }] }] } })); await new Promise((resolve) => setTimeout(resolve, 20)); }
-await waitFor(() => states.get(host.participantId)?.phase === "ANSWERING");
-two.ws.send(JSON.stringify({ type: "answer.submit", commandId: crypto.randomUUID(), payload: { x: .16, y: .31 } }));
-await waitFor(() => states.get(host.participantId)?.differences.some((item) => item.foundBy === two.participantId));
-const final = states.get(host.participantId); if (final.participants.length !== 2 || final.differences.length !== 4 || final.imageUrl !== "/assets/harbor.png") throw new Error("Two-player settings were not applied"); if (final.participants.find((p) => p.id === two.participantId).score !== 100) throw new Error("Score was not awarded exactly once");
-console.log(JSON.stringify({ roomCode: host.roomCode, participants: final.participants.length, phase: final.phase, differences: final.differences.length, imageUrl: final.imageUrl, finderScore: 100 })); for (const user of users) user.ws.close();
+import assert from "node:assert/strict";
+const base=process.env.BASE_URL??"http://127.0.0.1:8787";
+const waitFor=(check,timeout=12000)=>new Promise((resolve,reject)=>{const start=Date.now();const timer=setInterval(()=>{const result=check();if(result){clearInterval(timer);resolve(result)}else if(Date.now()-start>timeout){clearInterval(timer);reject(new Error("Timed out waiting for room state"))}},20)});
+const post=async(path,body)=>{const r=await fetch(base+path,{method:"POST",headers:{"content-type":"application/json"},body:JSON.stringify(body)});assert.ok(r.ok);return r.json()};
+const clients=[];
+const connect=async(session)=>{const client={...session,events:[],state:null};client.ws=new WebSocket(base.replace(/^http/,"ws")+session.socketUrl);client.ws.onmessage=e=>{const event=JSON.parse(e.data);client.events.push(event);if(event.type==="state.snapshot")client.state=event.payload};await new Promise((resolve,reject)=>{client.ws.onopen=resolve;client.ws.onerror=reject});client.ws.send(JSON.stringify({type:"session.resume",commandId:crypto.randomUUID(),payload:{participantId:session.participantId,reconnectSecret:session.reconnectSecret}}));await waitFor(()=>client.state);clients.push(client);return client};
+const send=async(client,type,payload={},overrides={})=>{const commandId=overrides.commandId??crypto.randomUUID();client.ws.send(JSON.stringify({type,commandId,gameNo:client.state.gameNo,stageNo:client.state.stageNo,payload,...overrides}));return waitFor(()=>client.events.find(e=>(e.type==="command.ack"||e.type==="error")&&e.payload.commandId===commandId))};
+const drawing=(id,x,y=.3)=>({strokes:[{id,color:"#ff6651",width:.008,points:[{x,y,t:0},{x:x+.03,y:y+.03,t:20}]}]});
+try{
+  const host=await connect(await post("/api/v1/rooms",{nickname:"Host"}));
+  const two=await connect(await post("/api/v1/rooms/join",{roomCode:host.roomCode,nickname:"Two"}));
+  const three=await connect(await post("/api/v1/rooms/join",{roomCode:host.roomCode,nickname:"Three"}));
+  assert.equal(host.state.settings.stageCount,1);
+  assert.equal((await send(two,"settings.update",{stageCount:2})).payload.code,"NOT_HOST");
+  assert.equal((await send(host,"settings.update",{differencesPerPlayer:6})).payload.code,"INVALID_PAYLOAD");
+  await send(host,"settings.update",{stageCount:2,differencesPerPlayer:2,drawingSeconds:30,answeringSeconds:30,deckId:"animals"});
+  await send(host,"game.start");const firstImage=host.state.imageUrl;
+  const duplicate=crypto.randomUUID();
+  await send(host,"difference.confirm",drawing("a",.15),{commandId:duplicate});
+  await send(host,"difference.confirm",drawing("a",.15),{commandId:duplicate});
+  await new Promise(r=>setTimeout(r,100));
+  assert.equal(host.state.participants.find(p=>p.id===host.participantId).confirmedCount,1);
+  assert.equal(two.state.differences.length,0,"Other drafts stay private");
+  for(let i=0;i<clients.length;i++){if(i>0)await send(clients[i],"difference.confirm",drawing("a"+i,.15+i*.25));await send(clients[i],"difference.confirm",drawing("b"+i,.15+i*.25,.65))}
+  await waitFor(()=>host.state.phase==="COUNTDOWN");
+  assert.equal((await send(two,"answer.submit",{x:.16,y:.31})).payload.code,"INVALID_PHASE");
+  await waitFor(()=>host.state.phase==="ANSWERING");
+  assert.equal(host.state.differences.length,6);
+  await send(two,"answer.submit",{x:.98,y:.98});
+  await waitFor(()=>host.events.some(e=>e.type==="answer.result"&&e.payload.result==="MISS"));
+  const miss=host.events.find(e=>e.type==="answer.result"&&e.payload.result==="MISS").payload;
+  assert.equal("x" in miss,false);assert.equal("y" in miss,false);
+  await send(two,"answer.submit",{x:.16,y:.31});
+  await waitFor(()=>two.events.some(e=>e.type==="answer.result"&&e.payload.result==="COOLDOWN"));
+  await Promise.all([send(host,"answer.submit",{x:.16,y:.31}),send(three,"answer.submit",{x:.16,y:.31})]);
+  await waitFor(()=>host.state.differences.some(d=>d.foundBy));
+  assert.equal(host.state.participants.reduce((n,p)=>n+p.score,0),100,"Exactly one finder");
+  assert.equal((await send(two,"phase.advance")).payload.code,"NOT_HOST");
+  await send(host,"phase.advance");assert.equal(host.state.phase,"ROUND_RESULT");
+  await send(host,"round.continue");assert.equal(host.state.stageNo,2);assert.notEqual(host.state.imageUrl,firstImage);
+  assert.equal((await send(host,"difference.confirm",drawing("stale",.2),{stageNo:1})).payload.code,"STALE_COMMAND");
+  await send(host,"difference.confirm",drawing("last",.2));
+  await send(host,"phase.advance");await waitFor(()=>host.state.phase==="ANSWERING");
+  await send(three,"answer.submit",{x:.21,y:.31});await waitFor(()=>host.state.phase==="ROUND_RESULT");
+  await send(host,"round.continue");assert.equal(host.state.phase,"FINAL_RESULT");assert.equal(host.state.rounds.length,2);
+  await send(host,"game.rematch");assert.equal(host.state.phase,"LOBBY");assert.equal(host.state.gameNo,2);
+  console.log("PASS: 3 players, automatic settings, private multiple drawings, duplicate/stale rejection, countdown, feedback/cooldown, unique score, host skip, random rounds, gallery and rematch");
+}finally{for(const client of clients)client.ws.close()}
