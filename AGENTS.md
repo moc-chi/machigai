@@ -43,4 +43,6 @@ Before declaring work complete, run the available type check, unit tests, integr
 
 ## Deployment authority
 
+For this project, publishing normally means a temporary Cloudflare preview, not production. Read `docs/architecture/deployment.md` section 8 first. Reuse an unexpired temporary account; explain and obtain explicit consent before accepting terms to create a new one. Never commit credentials or account claim URLs.
+
 AI may create branches, issues, tests, pull requests, and preview deployments. Production deployment requires explicit human approval. Any new paid service or expansion of collected user data also requires explicit approval.
