@@ -45,7 +45,8 @@ try{
   await send(winner,"answer.submit",{x:.98,y:.98},{commandId:missId});
   await send(winner,"answer.submit",{x:.98,y:.98});
   assert.equal(winner.state.participants.find(p=>p.id===winner.participantId).score,80,"Retries and cooldown do not double-charge");
-  const blockedUntil=Date.parse(winner.state.participants.find(p=>p.id===winner.participantId).answerBlockedUntil);
+  // Measure from receipt: the test machine and deployed Worker clocks may differ.
+  const blockedUntil=Date.now()+winner.state.settings.missCooldownSeconds*1000;
   await waitFor(()=>Date.now()>=blockedUntil);
   await send(winner,"answer.submit",{x:.98,y:.98});
   assert.equal(winner.state.participants.find(p=>p.id===winner.participantId).score,60,"Answers resume after cooldown");
