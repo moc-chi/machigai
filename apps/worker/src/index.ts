@@ -22,7 +22,7 @@ export class Room extends DurableObject<Env> {
     ctx.blockConcurrencyWhile(async () => {
       this.room = await ctx.storage.get<StoredRoom>("room");
       if (this.room) {
-        this.room.settings = { ...GAME_DEFAULTS, ...this.room.settings };
+        this.room.settings = { ...GAME_DEFAULTS, ...this.room.settings, missPenalty: GAME_DEFAULTS.missPenalty, missCooldownSeconds: GAME_DEFAULTS.missCooldownSeconds };
         this.room.rounds ??= [];
       }
     });
@@ -185,7 +185,9 @@ export class Room extends DurableObject<Env> {
     if (!found) {
       if (this.room!.differences.some(d => d.foundBy && hitTest(point, d.hitRegion))) return { participantId: member.id, result: "ALREADY_FOUND", at };
       member.answerBlockedUntil = new Date(now + this.room!.settings.missCooldownSeconds * 1000).toISOString();
-      return { participantId: member.id, result: "MISS", at, blockedUntil: member.answerBlockedUntil };
+      const previousScore = member.score;
+      member.score = Math.max(0, member.score - this.room!.settings.missPenalty);
+      return { participantId: member.id, result: "MISS", at, blockedUntil: member.answerBlockedUntil, scoreDelta: member.score - previousScore };
     }
     found.foundBy = member.id; found.foundAt = at; member.score += this.room!.settings.pointsForFinder;
     if (this.room!.differences.every(d => d.foundBy)) this.finishRound();

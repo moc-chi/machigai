@@ -70,7 +70,8 @@ type GameSettings = {
   answeringSeconds: number;        // 初期値60、ロビーで変更可能
   pointsForFinder: number;         // 初期値100
   pointsForUnfoundCreator: number; // 初期値100
-  missPenalty: number;             // 初期値0、要検討
+  missPenalty: number;             // 20点、得点の下限0
+  missCooldownSeconds: number;     // 3秒、サーバーが再回答を制限
   zoomMin: number;                 // 1
   zoomMax: number;                 // 3
 };

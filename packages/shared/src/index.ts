@@ -10,7 +10,7 @@ export const IMAGES = [
 export const GAME_DEFAULTS = {
   minPlayers: 2, maxPlayers: 10, stageCount: 1, differencesPerPlayer: 1,
   drawingSeconds: 90, answeringSeconds: 60, pointsForFinder: 100,
-  pointsForUnfoundCreator: 100, missPenalty: 0, missCooldownSeconds: 2,
+  pointsForUnfoundCreator: 100, missPenalty: 20, missCooldownSeconds: 3,
   countdownSeconds: 3, zoomMin: 1, zoomMax: 6, deckId: "animals",
 } as const;
 export const LIMITS = { maxMessageBytes: 524288, maxStrokes: 100, maxPoints: 2000, markerMs: 3000, minWidth: .001, maxWidth: .03 } as const;
@@ -54,7 +54,7 @@ export type Participant = { id: string; nickname: string; joinOrder: number; con
 export type Difference = { id: string; creatorId: string; strokes: Stroke[]; foundBy?: string; foundAt?: string };
 export type RoundReview = { stageNo: number; imageUrl: string; differences: Difference[] };
 export type RoomSnapshot = { roomId: string; roomCode: string; phase: Phase; revision: number; gameNo: number; stageNo: number; stageCount: number; imageUrl: string; phaseEndsAt?: string; selfId: string; participants: Participant[]; differences: Difference[]; settings: GameSettings; rounds?: RoundReview[] };
-export type AnswerFeedback = { participantId: string; result: "CORRECT" | "MISS" | "ALREADY_FOUND" | "COOLDOWN"; differenceId?: string; at: string; blockedUntil?: string };
+export type AnswerFeedback = { participantId: string; result: "CORRECT" | "MISS" | "ALREADY_FOUND" | "COOLDOWN"; differenceId?: string; at: string; blockedUntil?: string; scoreDelta?: number };
 export type ServerEvent =
   | { type: "state.snapshot"; revision: number; payload: RoomSnapshot }
   | { type: "command.ack"; revision: number; payload: { commandId: string } }

@@ -4,6 +4,11 @@ describe("room commands and decks", () => {
   it("starts with one random animal round", () => {
     expect(GAME_DEFAULTS.stageCount).toBe(1); expect(GAME_DEFAULTS.deckId).toBe("animals");
   });
+  it("uses the approved three-second, twenty-point miss penalty", () => {
+    expect(GAME_DEFAULTS.missCooldownSeconds).toBe(3);
+    expect(GAME_DEFAULTS.missPenalty).toBe(20);
+    expect(SettingsUpdateSchema.safeParse({missPenalty:-100}).success).toBe(false);
+  });
   it("validates partial automatic settings updates", () => {
     expect(SettingsUpdateSchema.parse({stageCount:4})).toEqual({stageCount:4});
     for (const value of [{stageCount:0},{stageCount:11},{differencesPerPlayer:6},{drawingSeconds:29},{answeringSeconds:301},{deckId:"unknown"},{}]) expect(SettingsUpdateSchema.safeParse(value).success).toBe(false);
