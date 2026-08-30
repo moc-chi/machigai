@@ -70,7 +70,7 @@ function Shell({language,onLanguage}:{language:Language;onLanguage:(value:Langua
       <label className="language-picker"><span>Language</span><select aria-label="Language" value={language} onChange={e=>onLanguage(e.target.value as Language)}>{LANGUAGES.map(([code,label])=><option key={code} value={code}>{label}</option>)}</select></label>
     </header>
     <main>{!session?<Home onSession={join}/>:!room.snapshot?<section className="loading"><p>{t("loading")}</p><button onClick={leave}>{t("leave")}</button></section>:<Game key={session.participantId} snapshot={room.snapshot} send={room.send} pending={room.pendingCount>0} leave={leave}/>}</main>
-    {room.feedback&&<div className={"feedback "+room.feedback.result.toLowerCase()} role="status" aria-live="polite">{room.feedback.result==="CORRECT"?t("correct",{name}):room.feedback.result==="MISS"?t("miss",{name}):room.feedback.result==="ALREADY_FOUND"?t("already"):t("cooldown",{n:GAME_DEFAULTS.missCooldownSeconds})}</div>}
+    {room.feedback&&<div className={"feedback "+room.feedback.result.toLowerCase()} role="status" aria-live="polite">{room.feedback.result==="CORRECT"?t("correct",{name}):room.feedback.result==="MISS"?t("miss",{name}):room.feedback.result==="ALREADY_FOUND"?t("already"):room.feedback.result==="OWN_DIFFERENCE"?t("own"):t("cooldown",{n:GAME_DEFAULTS.missCooldownSeconds})}</div>}
     {room.error&&<button className="error-toast" role="alert" onClick={()=>room.setError("")}>{t(errorKey(room.error))} ×</button>}
   </div>;
 }
@@ -90,7 +90,7 @@ function Game({snapshot,send,pending,leave}:{snapshot:RoomSnapshot;send:Send;pen
   if(snapshot.phase==="LOBBY")return <Lobby {...props} leave={leave}/>;
   if(snapshot.phase==="DRAWING")return <Drawing key={snapshot.gameNo+"-"+snapshot.stageNo} {...props}/>;
   if(snapshot.phase==="COUNTDOWN")return <Countdown snapshot={snapshot}/>;
-  if(snapshot.phase==="ANSWERING")return <Answer {...props}/>;
+  if(snapshot.phase==="ANSWERING"||snapshot.phase==="ANSWER_REVEAL")return <Answer {...props}/>;
   if(snapshot.phase==="ROUND_RESULT"||snapshot.phase==="FINAL_RESULT")return <Results {...props} leave={leave}/>;
   return <section className="loading"><h1>{t("ended")}</h1><button onClick={leave}>{t("leave")}</button></section>;
 }
@@ -105,9 +105,10 @@ function Lobby({snapshot,send,pending,leave}:{snapshot:RoomSnapshot;send:Send;pe
       <label>{t("differences")}<select value={snapshot.settings.differencesPerPlayer} onChange={e=>update("differencesPerPlayer",Number(e.target.value))}>{[1,2,3,4,5].map(v=><option key={v}>{v}</option>)}</select></label>
       {(["drawingSeconds","answeringSeconds"] as const).map(key=><label key={key}>{t(key==="drawingSeconds"?"drawTime":"answerTime")}<select value={snapshot.settings[key]} onChange={e=>update(key,Number(e.target.value))}>{[30,45,60,90,120,180,300].map(v=><option key={v} value={v}>{t("seconds",{n:v})}</option>)}</select></label>)}
       </fieldset><p className="muted" role="status">{t(pending?"saving":"saved")}</p>
-      <section className="deck-card"><h2>{t("deck")}: {t("animals")}</h2><p>{t("randomHint")}</p><div className="deck-thumbnails">{IMAGES.map(image=><img key={image.id} src={image.src} alt={t("animals")}/>)}</div></section>
+      <p className="muted">{t("areaRule")}</p>
+      <section className="deck-card"><h2>{t("deck")}</h2><div className="series-options">{(["animals","people"] as const).map(series=><button key={series} disabled={!me.isHost} aria-pressed={snapshot.settings.deckId===series} onClick={()=>update("deckId",series)}><strong>{t(series)}</strong><div className="deck-thumbnails">{IMAGES.filter(image=>image.deck===series).map(image=><img key={image.id} src={image.src} alt={t(series)}/>)}</div></button>)}</div></section>
       {me.isHost?<button className="primary start" disabled={pending||snapshot.participants.filter(p=>p.connected).length<2} onClick={()=>void send("game.start").catch(()=>{})}>{t("start")} →</button>:<p>{t("waiting")}</p>}
-      {snapshot.participants.filter(p=>p.connected).length<2&&<p className="muted">{t("enough")}</p>}
+      {snapshot.participants.filter(p=>p.connected).length<2&&<p className="muted start-hint">{t("enough")}</p>}
     </div></div>
   </section>;
 }
@@ -116,7 +117,7 @@ function useNow(){const [now,setNow]=useState(Date.now());useEffect(()=>{const t
 function Timer({endsAt}:{endsAt?:string}){const now=useNow();const seconds=endsAt?Math.max(0,Math.ceil((Date.parse(endsAt)-now)/1000)):0;return <time className={"timer "+(seconds<15?"danger":"")}>{String(Math.floor(seconds/60)).padStart(2,"0")}:{String(seconds%60).padStart(2,"0")}</time>}
 function PhaseHeader({snapshot,title,send,pending}:{snapshot:RoomSnapshot;title:"drawing"|"find";send:Send;pending:boolean}){
   const t=useText();const host=snapshot.participants.find(p=>p.id===snapshot.selfId)?.isHost;
-  return <div className="phase-header"><div><span className="eyebrow">{t("round",{n:snapshot.stageNo})} / {snapshot.stageCount}</span><h1>{t(title)}</h1></div><Timer endsAt={snapshot.phaseEndsAt}/>{host&&<button className="advance" disabled={pending} onClick={()=>{if(confirm(t("advanceConfirm")))void send("phase.advance").catch(()=>{})}}>{t("advance")}</button>}</div>;
+  return <div className="phase-header"><div><span className="eyebrow">{t("round",{n:snapshot.stageNo})} / {snapshot.stageCount}</span><h1>{t(title)}</h1></div><Timer endsAt={snapshot.phaseEndsAt}/>{host&&snapshot.phase!=="ANSWER_REVEAL"&&<button className="advance" disabled={pending} onClick={()=>{if(confirm(t("advanceConfirm")))void send("phase.advance").catch(()=>{})}}>{t("advance")}</button>}</div>;
 }
 function ZoomControls({view,onView}:{view:View;onView:(value:View)=>void}){
   const t=useText();return <div className="zoom-controls"><label>{t("zoom")} <input aria-label={t("zoom")} type="range" min={GAME_DEFAULTS.zoomMin} max={GAME_DEFAULTS.zoomMax} step=".05" value={view.zoom} onChange={e=>onView({...view,zoom:Number(e.target.value)})}/><output>{Math.round(view.zoom*100)}%</output></label><button onClick={()=>onView(initialView)}><RotateCcw/>{t("reset")}</button></div>;
@@ -128,11 +129,10 @@ function Drawing({snapshot,send,pending}:{snapshot:RoomSnapshot;send:Send;pendin
   const [submitting,setSubmitting]=useState(false);const count=me.confirmedCount??0;
   const confirmDraft=async()=>{if(!drafts.length||submitting)return;setSubmitting(true);try{await send("difference.confirm",{strokes:drafts});setDrafts([])}catch{/* Retain the draft until an authoritative acknowledgement. */}finally{setSubmitting(false)}};
   return <section><PhaseHeader snapshot={snapshot} title="drawing" send={send} pending={pending}/>
-    <div className="toolbar">
-      <div className="mode-controls"><button aria-pressed={tool==="draw"} onClick={()=>setTool("draw")}><Pencil/>{t("pen")}</button><button aria-pressed={tool==="move"} onClick={()=>setTool("move")}><Hand/>{t("move")}</button><button aria-pressed={tool==="pick"} aria-label={t("pick")} title={t("pick")} onClick={()=>setTool("pick")}><Pipette/></button></div>
-      <div className="pen-controls"><label>{t("color")}<input aria-label={t("color")} type="color" value={color} onChange={e=>setColor(e.target.value)}/></label>{["#000000","#ffffff"].map(c=><button key={c} className="swatch" style={{background:c}} aria-label={c} aria-pressed={color===c} onClick={()=>setColor(c)}/>)}<label>{t("width")}<input aria-label={t("width")} type="range" min={1} max={30} step={1} value={width*1000} onChange={e=>setWidth(Number(e.target.value)/1000)}/></label><span className="pen-preview" aria-label={t("color")+" "+color+" / "+t("width")+" "+Math.round(width*1000)}><i style={{background:color,height:Math.max(1,width*1000)}}/>{color} · {Math.round(width*1000)}</span></div>
+    <div className="toolbar drawing-toolbar">
+      <div className="mode-controls"><button aria-pressed={tool==="draw"} onClick={()=>setTool("draw")}><Pencil/>{t("pen")}</button><button aria-pressed={tool==="move"} onClick={()=>setTool("move")}><Hand/>{t("move")}</button><button aria-pressed={tool==="pick"} aria-label={t("pick")} title={t("pick")} onClick={()=>setTool("pick")}><Pipette/></button><button title={t("undo")} aria-label={t("undo")} disabled={!drafts.length||submitting} onClick={()=>setDrafts(value=>value.slice(0,-1))}><Undo2/><span>{t("undo")}</span></button><button title={t("clear")} aria-label={t("clear")} disabled={!drafts.length||submitting} onClick={()=>setDrafts([])}><Trash2/><span>{t("clear")}</span></button></div>
+      <div className="pen-controls"><label>{t("color")}<input aria-label={t("color")} type="color" value={color} onChange={e=>setColor(e.target.value)}/></label>{["#000000","#ffffff"].map(c=><button key={c} className="swatch" style={{background:c}} aria-label={c} aria-pressed={color===c} onClick={()=>setColor(c)}/>)}<label>{t("width")}<input aria-label={t("width")} type="range" min={1} max={30} step={1} value={width*1000} onChange={e=>setWidth(Number(e.target.value)/1000)}/></label><span className="pen-preview" aria-label={t("width")+" "+Math.round(width*1000)}><i style={{background:color,width:Math.max(2,width*1000),height:Math.max(2,width*1000)}}/></span></div>
       <ZoomControls view={view} onView={setView}/>
-      <div className="draft-actions"><button disabled={!drafts.length||submitting} onClick={()=>setDrafts(value=>value.slice(0,-1))}><Undo2/>{t("undo")}</button><button disabled={!drafts.length||submitting} onClick={()=>setDrafts([])}><Trash2/>{t("clear")}</button></div>
     </div>
     <Board imageUrl={snapshot.imageUrl} differences={snapshot.differences} drafts={drafts} view={view} onView={setView} tool={tool} color={color} width={width} disabled={me.confirmed||submitting} onStroke={stroke=>setDrafts(value=>value.length<LIMITS.maxStrokes?[...value,stroke]:value)} onPick={c=>{setColor(c);setTool("draw")}}/>
     <div className="drawing-footer"><div><strong data-testid="confirmed-progress">{t("progress",{n:count,total:snapshot.settings.differencesPerPlayer})}</strong><p className="muted">{t("submittedHint")}</p></div><button className="primary" disabled={me.confirmed||!drafts.length||submitting} onClick={()=>void confirmDraft()}>{me.confirmed?<><Check/>{t("confirmed")}</>:submitting?t("saving"):t("confirm")}</button></div>
@@ -141,40 +141,47 @@ function Drawing({snapshot,send,pending}:{snapshot:RoomSnapshot;send:Send;pendin
 }
 function Countdown({snapshot}:{snapshot:RoomSnapshot}){const t=useText();const now=useNow();const n=Math.max(0,Math.ceil((Date.parse(snapshot.phaseEndsAt!)-now)/1000));return <section className="countdown" role="status"><h1>{t("countdown")}</h1><strong>{n||"…"}</strong></section>}
 function Answer({snapshot,send,pending}:{snapshot:RoomSnapshot;send:Send;pending:boolean}){
-  const t=useText();const [view,setView]=useState<View>(initialView);const [tool,setTool]=useState<Tool>("answer");const [marks,setMarks]=useState(true);
+  const t=useText();const [view,setView]=useState<View>(initialView);const [tool,setTool]=useState<Tool>("answer");
   const now=useNow();const me=snapshot.participants.find(p=>p.id===snapshot.selfId)!;const cooldown=Math.max(0,Math.ceil((Date.parse(me.answerBlockedUntil??"")-now)/1000)||0);
-  return <section><PhaseHeader snapshot={snapshot} title="find" send={send} pending={pending}/><div className="toolbar"><div className="mode-controls"><button aria-pressed={tool==="answer"} onClick={()=>setTool("answer")}><Eye/>{t("answer")}</button><button aria-pressed={tool==="move"} onClick={()=>setTool("move")}><Hand/>{t("move")}</button></div><ZoomControls view={view} onView={setView}/><label className="check-label"><input type="checkbox" checked={marks} onChange={e=>setMarks(e.target.checked)}/>{t("marks")}</label><strong>{snapshot.differences.filter(d=>d.foundBy).length}/{snapshot.differences.length}</strong></div>
-    {cooldown>0&&<p className="cooldown" role="status">{t("cooldown",{n:cooldown})}</p>}
-    <div className="compare">{[false,true].map(changed=><Board key={String(changed)} imageUrl={snapshot.imageUrl} differences={changed?snapshot.differences:[]} view={view} onView={setView} tool={tool} label={t(changed?"changed":"original")} marks={marks} disabled={cooldown>0} onAnswer={(x,y)=>void send("answer.submit",{x,y}).catch(()=>{})}/>)}</div><Scores snapshot={snapshot}/>
+  const revealing=snapshot.phase==="ANSWER_REVEAL";
+  return <section><PhaseHeader snapshot={snapshot} title="find" send={send} pending={pending}/><div className="toolbar"><div className="mode-controls"><button aria-pressed={tool==="answer"} onClick={()=>setTool("answer")}><Eye/>{t("answer")}</button><button aria-pressed={tool==="move"} onClick={()=>setTool("move")}><Hand/>{t("move")}</button></div><ZoomControls view={view} onView={setView}/><strong>{snapshot.differences.filter(d=>d.foundBy).length}/{snapshot.differences.length}</strong></div>
+    {revealing&&<p className="reveal-notice" role="status">{t("reveal")}</p>}
+    {cooldown>0&&!revealing&&<p className="cooldown" role="status">{t("cooldown",{n:cooldown})}</p>}
+    <div className="compare">{[false,true].map(changed=><Board key={String(changed)} imageUrl={snapshot.imageUrl} differences={changed?snapshot.differences:[]} view={view} onView={setView} tool={tool} label={t(changed?"changed":"original")} marks hideFound disabled={cooldown>0||revealing} onAnswer={(x,y)=>void send("answer.submit",{x,y}).catch(()=>{})}/>)}</div><Scores snapshot={snapshot}/>
   </section>;
 }
-function Scores({snapshot}:{snapshot:RoomSnapshot}){
-  return <ol className="scores">{[...snapshot.participants].sort((a,b)=>b.score-a.score).map((p,i)=><li key={p.id}><b>{i+1}</b><Avatar name={p.nickname}/><span>{p.nickname}</span><strong>{p.score} pt</strong></li>)}</ol>;
+function Scores({snapshot,highlightWinner=false}:{snapshot:RoomSnapshot;highlightWinner?:boolean}){
+  const t=useText();const highest=Math.max(...snapshot.participants.map(p=>p.score));
+  return <ol className="scores">{[...snapshot.participants].sort((a,b)=>b.score-a.score).map(p=><li key={p.id} className={highlightWinner&&p.score===highest?"winner":""}><b>{1+snapshot.participants.filter(other=>other.score>p.score).length}</b><Avatar name={p.nickname}/><span>{p.nickname}{highlightWinner&&p.score===highest&&<small className="winner-label"><Crown/>{t("winner")}</small>}</span><strong>{p.score} pt</strong></li>)}</ol>;
+}
+function RoundScores({snapshot,roundNo}:{snapshot:RoomSnapshot;roundNo:number}){
+  const t=useText();const scores=snapshot.rounds?.find(r=>r.stageNo===roundNo)?.scores;
+  if(!scores)return null;
+  return <section className="score-breakdown"><h2>{t("breakdown")}</h2>{scores.map(score=><div className="score-detail" key={score.participantId}><strong>{snapshot.participants.find(p=>p.id===score.participantId)?.nickname??"—"}</strong><dl><div><dt>{t("foundPoints")}</dt><dd>+{score.found}</dd></div><div><dt>{t("unfoundPoints")}</dt><dd>+{score.unfound}</dd></div><div><dt>{t("missPoints")}</dt><dd>{score.penalty}</dd></div><div><dt>{t("roundTotal")}</dt><dd>{score.total>0?"+":""}{score.total}</dd></div></dl></div>)}</section>;
 }
 function Results({snapshot,send,pending,leave}:{snapshot:RoomSnapshot;send:Send;pending:boolean;leave:()=>void}){
-  const t=useText();const [filter,setFilter]=useState("all");const [roundNo,setRoundNo]=useState(snapshot.stageNo);const [view,setView]=useState<View>(initialView);const [marks,setMarks]=useState(false);
+  const t=useText();const [filter,setFilter]=useState("all");const [roundNo,setRoundNo]=useState(snapshot.stageNo);const [view,setView]=useState<View>(initialView);const [marks,setMarks]=useState(true);
   const isFinal=snapshot.phase==="FINAL_RESULT",me=snapshot.participants.find(p=>p.id===snapshot.selfId)!;
   const round=snapshot.rounds?.find(r=>r.stageNo===roundNo)??{stageNo:snapshot.stageNo,imageUrl:snapshot.imageUrl,differences:snapshot.differences};
   const shown=filter==="all"?round.differences:round.differences.filter(d=>d.creatorId===filter);
   return <section className="results"><div className="result-header"><span className="eyebrow">{t("round",{n:round.stageNo})}</span><h1>{t(isFinal?"final":"result")}</h1></div>
     <div className="result-layout"><div className="review"><div className="gallery-tabs">{isFinal&&(snapshot.rounds??[]).map(r=><button key={r.stageNo} aria-pressed={roundNo===r.stageNo} onClick={()=>{setRoundNo(r.stageNo);setView(initialView)}}>{t("round",{n:r.stageNo})}</button>)}</div>
-      <div className="gallery-tabs"><button aria-pressed={filter==="all"} onClick={()=>setFilter("all")}>{t("all")}</button>{snapshot.participants.map(p=><button key={p.id} aria-pressed={filter===p.id} onClick={()=>setFilter(p.id)}>{p.nickname}</button>)}</div>
       <div className="toolbar"><ZoomControls view={view} onView={setView}/><label className="check-label"><input type="checkbox" checked={marks} onChange={e=>setMarks(e.target.checked)}/>{t("marks")}</label></div>
+      <div className="gallery-tabs"><button aria-pressed={filter==="all"} onClick={()=>setFilter("all")}>{t("all")}</button>{snapshot.participants.map(p=><button key={p.id} aria-pressed={filter===p.id} onClick={()=>setFilter(p.id)}>{p.nickname}</button>)}</div>
       <div className="compare"><Board imageUrl={round.imageUrl} view={view} onView={setView} label={t("original")}/><Board imageUrl={round.imageUrl} differences={shown} view={view} onView={setView} label={t("changed")} marks={marks} persistentMarks/></div>
       <SharePanel imageUrl={round.imageUrl} differences={shown}/>
-    </div><aside><Scores snapshot={snapshot}/><div className="result-actions">{me.isHost?<button className="primary" disabled={pending} onClick={()=>void send(isFinal?"game.rematch":"round.continue").catch(()=>{})}>{t(isFinal?"rematch":snapshot.stageNo>=snapshot.stageCount?"viewFinal":"next")}</button>:<p>{t("waiting")}</p>}<button onClick={leave}>{t("leave")}</button></div></aside></div>
+    </div><aside><Scores snapshot={snapshot} highlightWinner={isFinal}/><RoundScores snapshot={snapshot} roundNo={round.stageNo}/><div className="result-actions">{me.isHost?<button className="primary" disabled={pending} onClick={()=>void send(isFinal?"game.rematch":"round.continue").catch(()=>{})}>{t(isFinal?"rematch":snapshot.stageNo>=snapshot.stageCount?"viewFinal":"next")}</button>:<p>{t("waiting")}</p>}<button onClick={leave}>{t("leave")}</button></div></aside></div>
   </section>;
 }
 function SharePanel({imageUrl,differences}:{imageUrl:string;differences:Difference[]}){
   const t=useText();const language=useContext(LanguageContext);const [blob,setBlob]=useState<Blob|null>(null);const [preview,setPreview]=useState("");const [error,setError]=useState(false);
   const signature=differences.map(d=>d.id).join(",");
   useEffect(()=>{let active=true,url="";setBlob(null);setPreview("");setError(false);
-    void makeShareImage(imageUrl,differences,{title:t("app"),count:t("shareCount",{n:differences.length}),original:t("original"),changed:t("changed")}).then(result=>{if(active){url=URL.createObjectURL(result);setBlob(result);setPreview(url)}}).catch(()=>{if(active)setError(true)});
+    void makeShareImage(imageUrl,differences,{title:t("app"),count:t("shareBadge",{n:differences.length}),original:t("original"),changed:t("changed")}).then(result=>{if(active){url=URL.createObjectURL(result);setBlob(result);setPreview(url)}}).catch(()=>{if(active)setError(true)});
     return()=>{active=false;if(url)URL.revokeObjectURL(url)};
   },[imageUrl,signature,language]);
   const share=async()=>{if(!blob)return;const file=new File([blob],"difference-party.png",{type:"image/png"});
-    try{if(navigator.canShare?.({files:[file]}))await navigator.share({files:[file],title:t("app"),text:t("shareCount",{n:differences.length})});else downloadImage(blob)}catch(error){if(!(error instanceof DOMException&&error.name==="AbortError"))setError(true)}
+    try{if(navigator.canShare?.({files:[file]}))await navigator.share({files:[file],title:t("app"),text:t("shareBadge",{n:differences.length})});else downloadImage(blob)}catch(error){if(!(error instanceof DOMException&&error.name==="AbortError"))setError(true)}
   };
-  const xUrl="https://twitter.com/intent/tweet?text="+encodeURIComponent(t("shareCount",{n:differences.length})+" #DifferenceParty");
-  return <section className="share-panel"><div className="share-actions"><button disabled={!blob} onClick={()=>void share()}><Share2/>{t("share")}</button><button disabled={!blob} onClick={()=>blob&&downloadImage(blob)}><Download/>{t("download")}</button><a href={xUrl} target="_blank" rel="noreferrer">{t("xHint")}</a></div><p className="muted">{t("shareHint")}</p>{error&&<p role="alert">{t("error")}</p>}{preview&&<details><summary>{t("shareCount",{n:differences.length})}</summary><img className="share-preview" src={preview} alt={t("shareCount",{n:differences.length})}/></details>}</section>;
+  return <section className="share-panel"><div className="share-actions"><button disabled={!blob} onClick={()=>void share()}><Share2/>{t("share")}</button><button disabled={!blob} onClick={()=>blob&&downloadImage(blob)}><Download/>{t("download")}</button></div>{error&&<p role="alert">{t("error")}</p>}{preview&&<details><summary>{t("sharePreview")}</summary><img className="share-preview" src={preview} alt={t("sharePreview")}/></details>}</section>;
 }

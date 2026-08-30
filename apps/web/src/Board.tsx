@@ -6,10 +6,10 @@ import { useText } from "./i18n";
 export type Tool = "draw" | "answer" | "move" | "pick";
 export const initialView: View = { zoom: 1, x: 0, y: 0 };
 
-export function Board({ imageUrl, differences = [], drafts = [], view, onView, tool = "move", color = "#111111", width = .008, disabled = false, onStroke, onPick, onAnswer, marks = false, persistentMarks = false, label }: {
+export function Board({ imageUrl, differences = [], drafts = [], view, onView, tool = "move", color = "#111111", width = .008, disabled = false, onStroke, onPick, onAnswer, marks = false, persistentMarks = false, hideFound = false, label }: {
   imageUrl: string; differences?: Difference[]; drafts?: Stroke[]; view: View; onView: (view: View) => void;
   tool?: Tool; color?: string; width?: number; disabled?: boolean; onStroke?: (stroke: Stroke) => void;
-  onPick?: (color: string) => void; onAnswer?: (x: number,y: number) => void; marks?: boolean; persistentMarks?: boolean; label?: string;
+  onPick?: (color: string) => void; onAnswer?: (x: number,y: number) => void; marks?: boolean; persistentMarks?: boolean; hideFound?: boolean; label?: string;
 }) {
   const t = useText(); const viewport = useRef<HTMLDivElement>(null); const layer = useRef<HTMLDivElement>(null); const canvas = useRef<HTMLCanvasElement>(null);
   const source = useRef<HTMLImageElement | null>(null); const current = useRef<Stroke | null>(null);
@@ -23,6 +23,7 @@ export function Board({ imageUrl, differences = [], drafts = [], view, onView, t
     const ctx = canvas.current?.getContext("2d"); const img = source.current; if (!ctx || !img) return;
     const w=canvas.current!.width,h=canvas.current!.height; ctx.clearRect(0,0,w,h); ctx.drawImage(img,0,0,w,h);
     for (const difference of differences) {
+      if (hideFound && difference.foundAt && now - Date.parse(difference.foundAt) >= LIMITS.markerMs) continue;
       if (marks && (persistentMarks || (difference.foundAt && now - Date.parse(difference.foundAt) < LIMITS.markerMs))) {
         ctx.save(); ctx.globalAlpha=.5;
         for (const stroke of difference.strokes) drawSmoothStroke(ctx,{...stroke,color:"#24b990",width:stroke.width+.018},w,h);
@@ -32,7 +33,7 @@ export function Board({ imageUrl, differences = [], drafts = [], view, onView, t
     }
     for (const stroke of drafts) drawSmoothStroke(ctx,stroke,w,h);
     if (current.current) drawSmoothStroke(ctx,current.current,w,h);
-  },[differences,drafts,marks,persistentMarks,now]);
+  },[differences,drafts,marks,persistentMarks,hideFound,now]);
   useEffect(() => { const img=new Image(); let active=true; setLoaded(false); img.onload=()=>{if(active){source.current=img;setLoaded(true)}}; img.src=imageUrl; return()=>{active=false}; },[imageUrl]);
   useEffect(()=>{render()},[render,loaded]);
   useEffect(()=>{if(!marks||persistentMarks)return;const timer=setInterval(()=>setNow(Date.now()),200);return()=>clearInterval(timer)},[marks,persistentMarks]);

@@ -1,11 +1,13 @@
 import { DurableObject } from "cloudflare:workers";
 import { AnswerSchema, ClientCommandSchema, DifferenceSchema, GAME_DEFAULTS, IMAGES, LIMITS, NicknameSchema, RoomCodeSchema, SettingsUpdateSchema, chooseImage, type AnswerFeedback, type Difference, type GameSettings, type Participant, type RoomSnapshot, type RoundReview, type ServerEvent } from "@machigai/shared";
 import { buildHitRegion, hitTest, type HitRegion } from "@machigai/drawing";
+import { AREA_RULES, areaPoints } from "@machigai/shared";
+import { rasterize, visibleArea, visibleHit, uncoveredArea, type SourcePixels, type VisibleArea } from "@machigai/drawing";
 
-interface Env { ROOMS: DurableObjectNamespace<Room> }
+interface Env { ROOMS: DurableObjectNamespace<Room>; ASSETS: Fetcher }
 type InternalParticipant = Omit<Participant, "isHost"> & { secretHash: string; kicked: boolean; lastSeenAt: string };
-type InternalDifference = Difference & { hitRegion: HitRegion };
-type StoredRoom = { roomId: string; roomCode: string; phase: RoomSnapshot["phase"]; revision: number; gameNo: number; stageNo: number; imageUrl: string; phaseEndsAt?: string; hostTransferAt?: string; expiresAt?: string; hostId: string; participants: InternalParticipant[]; differences: InternalDifference[]; processedCommands: string[]; settings: GameSettings; rounds: RoundReview[] };
+type InternalDifference = Difference & { hitRegion: HitRegion; visible?: VisibleArea };
+type StoredRoom = { roomId: string; roomCode: string; phase: RoomSnapshot["phase"]; revision: number; gameNo: number; stageNo: number; imageUrl: string; phaseEndsAt?: string; hostTransferAt?: string; expiresAt?: string; hostId: string; participants: InternalParticipant[]; differences: InternalDifference[]; processedCommands: string[]; settings: GameSettings; rounds: RoundReview[]; roundScores?: Record<string,{found:number;unfound:number;penalty:number;total:number}> };
 type SocketSession = { participantId?: string };
 const json = (data: unknown, status = 200) => new Response(JSON.stringify(data), { status, headers: { "content-type": "application/json; charset=utf-8" } });
 const randomCode = () => Array.from(crypto.getRandomValues(new Uint8Array(6)), value => "ABCDEFGHJKLMNPQRSTUVWXYZ23456789"[value % 32]).join("");
@@ -17,6 +19,7 @@ export class Room extends DurableObject<Env> {
   private room?: StoredRoom;
   private sockets = new Map<WebSocket, SocketSession>();
   private pending: Promise<unknown> = Promise.resolve();
+  private sourceCache?: { url: string; pixels: SourcePixels };
   constructor(ctx: DurableObjectState, env: Env) {
     super(ctx, env);
     ctx.blockConcurrencyWhile(async () => {
@@ -24,6 +27,7 @@ export class Room extends DurableObject<Env> {
       if (this.room) {
         this.room.settings = { ...GAME_DEFAULTS, ...this.room.settings, missPenalty: GAME_DEFAULTS.missPenalty, missCooldownSeconds: GAME_DEFAULTS.missCooldownSeconds };
         this.room.rounds ??= [];
+        this.room.roundScores ??= {};
       }
     });
   }
@@ -127,7 +131,22 @@ export class Room extends DurableObject<Env> {
           this.requirePhase("DRAWING");
           if (member.confirmed) throw new CommandError("ALREADY_CONFIRMED");
           const input = DifferenceSchema.parse(command.payload);
-          this.room.differences.push({ id: crypto.randomUUID(), creatorId: member.id, strokes: input.strokes, hitRegion: buildHitRegion(input) });
+          const source=await this.sourcePixels();
+          let composite:Uint8Array;
+          try { composite=rasterize(source,input.strokes); }
+          catch { throw new CommandError("DRAWING_TOO_COMPLEX"); }
+          let visible=visibleArea(source,composite);
+          if(visible.pixels<AREA_RULES.minimumPixels)throw new CommandError("DRAWING_NOT_VISIBLE");
+          // Reject duplicate/invisible additions over this creator's previous work.
+          const own=this.room.differences.filter(d=>d.creatorId===member.id);
+          if(own.length){
+            let rgb=source.rgb;
+            try { for(const d of own)rgb=rasterize({...source,rgb},d.strokes);
+              visible=uncoveredArea(visible,visibleArea(source,rgb),source.width,source.height);
+              if(visible.pixels<AREA_RULES.minimumPixels)throw new CommandError("DRAWING_NOT_VISIBLE");
+            } catch(error){if(error instanceof CommandError)throw error;throw new CommandError("DRAWING_TOO_COMPLEX");}
+          }
+          this.room.differences.push({ id: crypto.randomUUID(), creatorId: member.id, strokes: input.strokes, hitRegion: buildHitRegion(input), visible, points: areaPoints(visible.ratio) });
           member.confirmed = this.count(member.id) >= this.room.settings.differencesPerPlayer;
           if (this.members().every(p => p.confirmed)) this.startCountdown();
           break;
@@ -158,7 +177,7 @@ export class Room extends DurableObject<Env> {
       await this.changed();
       this.send(socket, "command.ack", { commandId: id });
       if (feedback) {
-        if (feedback.result === "COOLDOWN") this.send(socket, "answer.result", feedback);
+        if (feedback.result === "COOLDOWN" || feedback.result === "OWN_DIFFERENCE") this.send(socket, "answer.result", feedback);
         else for (const [ws, session] of this.sockets) if (session.participantId) this.send(ws, "answer.result", feedback);
       }
     } catch (error) {
@@ -167,8 +186,24 @@ export class Room extends DurableObject<Env> {
     }
   }
   private count(id: string) { return this.room!.differences.filter(d => d.creatorId === id).length; }
+  private async sourcePixels():Promise<SourcePixels> {
+    const url=this.room!.imageUrl;
+    if(this.sourceCache?.url===url)return this.sourceCache.pixels;
+    const image=IMAGES.find(image=>image.src===url);
+    if(!image)throw new CommandError("INVALID_PAYLOAD");
+    const width=AREA_RULES.sampleWidth,height=Math.round(width*image.height/image.width);
+    const response=await this.env.ASSETS.fetch(new Request("https://assets.invalid"+url+".rgb"));
+    const rgb=new Uint8Array(await response.arrayBuffer());
+    if(!response.ok||rgb.length!==width*height*3)throw new CommandError("SOURCE_UNAVAILABLE");
+    const pixels={width,height,rgb};this.sourceCache={url,pixels};return pixels;
+  }
+  private hits(x:number,y:number,d:InternalDifference) {
+    const image=IMAGES.find(image=>image.src===this.room!.imageUrl)!;
+    return d.visible?visibleHit(x,y,d.visible,AREA_RULES.sampleWidth,Math.round(AREA_RULES.sampleWidth*image.height/image.width)):hitTest({x,y,t:0},d.hitRegion);
+  }
   private startDrawing() {
-    const r = this.room!; r.phase = "DRAWING"; r.imageUrl = chooseImage(r.stageNo > 1 ? r.imageUrl : undefined);
+    const r = this.room!; r.phase = "DRAWING"; r.imageUrl = chooseImage(r.stageNo > 1 ? r.imageUrl : undefined, Math.random(), r.settings.deckId);
+    r.roundScores = {};
     r.differences = []; this.members().forEach(p => { p.confirmed = false; delete p.answerBlockedUntil; });
     this.deadline(r.settings.drawingSeconds);
   }
@@ -181,24 +216,31 @@ export class Room extends DurableObject<Env> {
     const now = Date.now(); const at = new Date(now).toISOString();
     if (member.answerBlockedUntil && Date.parse(member.answerBlockedUntil) > now) return { participantId: member.id, result: "COOLDOWN", at, blockedUntil: member.answerBlockedUntil };
     const point = { ...AnswerSchema.parse(input), t: 0 };
-    const found = this.room!.differences.find(d => !d.foundBy && hitTest(point, d.hitRegion));
+    const found = this.room!.differences.find(d => !d.foundBy && d.creatorId !== member.id && this.hits(point.x,point.y,d));
     if (!found) {
-      if (this.room!.differences.some(d => d.foundBy && hitTest(point, d.hitRegion))) return { participantId: member.id, result: "ALREADY_FOUND", at };
+      if (this.room!.differences.some(d => !d.foundBy && d.creatorId === member.id && this.hits(point.x,point.y,d))) return { participantId: member.id, result: "OWN_DIFFERENCE", at };
+      if (this.room!.differences.some(d => d.foundBy && this.hits(point.x,point.y,d))) return { participantId: member.id, result: "ALREADY_FOUND", at };
       member.answerBlockedUntil = new Date(now + this.room!.settings.missCooldownSeconds * 1000).toISOString();
       const previousScore = member.score;
       member.score = Math.max(0, member.score - this.room!.settings.missPenalty);
+      this.recordScore(member.id, "penalty", member.score - previousScore);
       return { participantId: member.id, result: "MISS", at, blockedUntil: member.answerBlockedUntil, scoreDelta: member.score - previousScore };
     }
-    found.foundBy = member.id; found.foundAt = at; member.score += this.room!.settings.pointsForFinder;
-    if (this.room!.differences.every(d => d.foundBy)) this.finishRound();
-    return { participantId: member.id, result: "CORRECT", differenceId: found.id, at };
+    const points=found.points?.finder??this.room!.settings.pointsForFinder;
+    found.foundBy = member.id; found.foundAt = at; member.score += points;
+    this.recordScore(member.id, "found", points);
+    if (this.room!.differences.every(d => d.foundBy)) { this.room!.phase = "ANSWER_REVEAL"; this.deadline(LIMITS.markerMs / 1000); }
+    return { participantId: member.id, result: "CORRECT", differenceId: found.id, at, scoreDelta:points };
   }
   private finishRound() {
     const r = this.room!;
-    for (const d of r.differences.filter(d => !d.foundBy)) { const creator = r.participants.find(p => p.id === d.creatorId); if (creator) creator.score += r.settings.pointsForUnfoundCreator; }
+    for (const d of r.differences.filter(d => !d.foundBy)) { const creator = r.participants.find(p => p.id === d.creatorId); if (creator) { const points=d.points?.unfound??r.settings.pointsForUnfoundCreator;creator.score += points; this.recordScore(creator.id,"unfound",points); } }
     r.phase = "ROUND_RESULT"; delete r.phaseEndsAt;
     r.rounds = r.rounds.filter(round => round.stageNo !== r.stageNo);
-    r.rounds.push({ stageNo: r.stageNo, imageUrl: r.imageUrl, differences: r.differences.map(({ hitRegion: _, ...d }) => d) });
+    r.rounds.push({ stageNo: r.stageNo, imageUrl: r.imageUrl, differences: r.differences.map(({ hitRegion: _, visible: _visible, ...d }) => d), scores: this.members().map(p=>({participantId:p.id,...(r.roundScores?.[p.id]??{found:0,unfound:0,penalty:0,total:0})})) });
+  }
+  private recordScore(id: string, kind: "found"|"unfound"|"penalty", amount: number) {
+    const scores=this.room!.roundScores??={}; const entry=scores[id]??={found:0,unfound:0,penalty:0,total:0}; entry[kind]+=amount;entry.total+=amount;
   }
   private deadline(seconds: number) { this.room!.phaseEndsAt = new Date(Date.now() + seconds * 1000).toISOString(); }
   async alarm() {
@@ -216,6 +258,7 @@ export class Room extends DurableObject<Env> {
         if (r.phase === "DRAWING") this.startCountdown();
         else if (r.phase === "COUNTDOWN") { r.phase = "ANSWERING"; this.deadline(r.settings.answeringSeconds); }
         else if (r.phase === "ANSWERING") this.finishRound();
+        else if (r.phase === "ANSWER_REVEAL") this.finishRound();
       }
       await this.changed();
     });
@@ -246,7 +289,7 @@ export class Room extends DurableObject<Env> {
     const r = this.room!; const hidden = r.phase === "DRAWING" || r.phase === "COUNTDOWN";
     return { roomId: r.roomId, roomCode: r.roomCode, phase: r.phase, revision: r.revision, gameNo: r.gameNo, stageNo: r.stageNo, stageCount: r.settings.stageCount, imageUrl: r.imageUrl, phaseEndsAt: r.phaseEndsAt, selfId, settings: r.settings,
       participants: this.members().map(p => ({ id: p.id, nickname: p.nickname, joinOrder: p.joinOrder, connected: p.connected, ready: p.ready, score: p.score, confirmed: p.confirmed, confirmedCount: this.count(p.id), answerBlockedUntil: p.answerBlockedUntil, isHost: p.id === r.hostId })),
-      differences: r.differences.filter(d => !hidden || d.creatorId === selfId).map(({ hitRegion: _, ...d }) => d), rounds: r.rounds };
+      differences: r.differences.filter(d => !hidden || d.creatorId === selfId).map(({ hitRegion: _, visible: _visible, ...d }) => d), rounds: r.rounds };
   }
   private send(socket: WebSocket, type: ServerEvent["type"], payload: unknown) {
     if (socket.readyState === WebSocket.OPEN) socket.send(JSON.stringify({ type, revision: this.room?.revision ?? 0, payload }));

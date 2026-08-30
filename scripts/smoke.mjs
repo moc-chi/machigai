@@ -15,17 +15,24 @@ try{
   assert.equal((await send(host,"settings.update",{differencesPerPlayer:6})).payload.code,"INVALID_PAYLOAD");
   await send(host,"settings.update",{stageCount:2,differencesPerPlayer:2,drawingSeconds:30,answeringSeconds:30,deckId:"animals"});
   await send(host,"game.start");const firstImage=host.state.imageUrl;
+  assert.equal((await send(host,"difference.confirm",{strokes:[{id:"tiny",color:"#ffffff",width:.001,points:[{x:.5,y:.5,t:0}]}]})).payload.code,"DRAWING_NOT_VISIBLE");
   const duplicate=crypto.randomUUID();
-  await send(host,"difference.confirm",drawing("a",.15),{commandId:duplicate});
+  await send(host,"difference.confirm",{...drawing("a",.15),points:{finder:99999,unfound:99999}},{commandId:duplicate});
   await send(host,"difference.confirm",drawing("a",.15),{commandId:duplicate});
   await new Promise(r=>setTimeout(r,100));
   assert.equal(host.state.participants.find(p=>p.id===host.participantId).confirmedCount,1);
+  assert.deepEqual(host.state.differences[0].points,{finder:150,unfound:50});
+  assert.equal((await send(host,"difference.confirm",drawing("duplicate-paint",.15))).payload.code,"DRAWING_NOT_VISIBLE");
   assert.equal(two.state.differences.length,0,"Other drafts stay private");
   for(let i=0;i<clients.length;i++){if(i>0)await send(clients[i],"difference.confirm",drawing("a"+i,.15+i*.25));await send(clients[i],"difference.confirm",drawing("b"+i,.15+i*.25,.65))}
   await waitFor(()=>host.state.phase==="COUNTDOWN");
   assert.equal((await send(two,"answer.submit",{x:.16,y:.31})).payload.code,"INVALID_PHASE");
   await waitFor(()=>host.state.phase==="ANSWERING");
   assert.equal(host.state.differences.length,6);
+  await send(host,"answer.submit",{x:.16,y:.31});
+  await waitFor(()=>host.events.some(e=>e.type==="answer.result"&&e.payload.result==="OWN_DIFFERENCE"));
+  assert.equal(host.state.participants.find(p=>p.id===host.participantId).score,0,"Self answers do not score");
+  assert.equal(host.state.differences.some(d=>d.foundBy),false,"Self answers do not reveal a difference");
   await send(two,"answer.submit",{x:.98,y:.98});
   await waitFor(()=>host.events.some(e=>e.type==="answer.result"&&e.payload.result==="MISS"));
   const miss=host.events.find(e=>e.type==="answer.result"&&e.payload.result==="MISS").payload;
@@ -36,28 +43,35 @@ try{
   await waitFor(()=>two.events.some(e=>e.type==="answer.result"&&e.payload.result==="COOLDOWN"));
   await Promise.all([send(host,"answer.submit",{x:.16,y:.31}),send(three,"answer.submit",{x:.16,y:.31})]);
   await waitFor(()=>host.state.differences.some(d=>d.foundBy));
-  assert.equal(host.state.participants.reduce((n,p)=>n+p.score,0),100,"Exactly one finder");
+  assert.equal(host.state.participants.reduce((n,p)=>n+p.score,0),150,"Exactly one finder, small visible area");
   const winner=clients.find(c=>c.participantId===host.state.differences.find(d=>d.foundBy).foundBy);
   await send(winner,"answer.submit",{x:.16,y:.31});
-  assert.equal(winner.state.participants.find(p=>p.id===winner.participantId).score,100,"Already found is not penalized");
+  assert.equal(winner.state.participants.find(p=>p.id===winner.participantId).score,150,"Already found is not penalized");
   const missId=crypto.randomUUID();await send(winner,"answer.submit",{x:.98,y:.98},{commandId:missId});
-  assert.equal(winner.state.participants.find(p=>p.id===winner.participantId).score,80,"Miss subtracts twenty points");
+  assert.equal(winner.state.participants.find(p=>p.id===winner.participantId).score,130,"Miss subtracts twenty points");
   await send(winner,"answer.submit",{x:.98,y:.98},{commandId:missId});
   await send(winner,"answer.submit",{x:.98,y:.98});
-  assert.equal(winner.state.participants.find(p=>p.id===winner.participantId).score,80,"Retries and cooldown do not double-charge");
+  assert.equal(winner.state.participants.find(p=>p.id===winner.participantId).score,130,"Retries and cooldown do not double-charge");
   // Measure from receipt: the test machine and deployed Worker clocks may differ.
   const blockedUntil=Date.now()+winner.state.settings.missCooldownSeconds*1000;
   await waitFor(()=>Date.now()>=blockedUntil);
   await send(winner,"answer.submit",{x:.98,y:.98});
-  assert.equal(winner.state.participants.find(p=>p.id===winner.participantId).score,60,"Answers resume after cooldown");
+  assert.equal(winner.state.participants.find(p=>p.id===winner.participantId).score,110,"Answers resume after cooldown");
   assert.equal((await send(two,"phase.advance")).payload.code,"NOT_HOST");
   await send(host,"phase.advance");assert.equal(host.state.phase,"ROUND_RESULT");
+  assert.equal(host.state.rounds[0].scores.reduce((n,s)=>n+s.unfound,0),250,"Five small unfound bonuses, not finder points");
   await send(host,"round.continue");assert.equal(host.state.stageNo,2);assert.notEqual(host.state.imageUrl,firstImage);
   assert.equal((await send(host,"difference.confirm",drawing("stale",.2),{stageNo:1})).payload.code,"STALE_COMMAND");
-  await send(host,"difference.confirm",drawing("last",.2));
+  const large=drawing("last",.1);large.strokes[0].width=.08;large.strokes[0].points[1]={x:.9,y:.3,t:20};
+  await send(host,"difference.confirm",large);
+  assert.deepEqual(host.state.differences[0].points,{finder:50,unfound:150},"Large visible area has reversed rewards");
   await send(host,"phase.advance");await waitFor(()=>host.state.phase==="ANSWERING");
-  await send(three,"answer.submit",{x:.21,y:.31});await waitFor(()=>host.state.phase==="ROUND_RESULT");
+  await send(three,"answer.submit",{x:.21,y:.31});await waitFor(()=>host.state.phase==="ANSWER_REVEAL");
+  assert.equal(Date.parse(host.state.phaseEndsAt)-Date.parse(host.state.differences[0].foundAt),3000,"Final answer stays visible for three seconds");
+  assert.equal((await send(host,"phase.advance")).payload.code,"INVALID_PHASE");
+  await waitFor(()=>host.state.phase==="ROUND_RESULT");
   await send(host,"round.continue");assert.equal(host.state.phase,"FINAL_RESULT");assert.equal(host.state.rounds.length,2);
+  for(const participant of host.state.participants){const entries=host.state.rounds.flatMap(r=>r.scores).filter(s=>s.participantId===participant.id);assert.equal(entries.reduce((sum,s)=>sum+s.total,0),participant.score);for(const s of entries)assert.equal(s.total,s.found+s.unfound+s.penalty)}
   await send(host,"game.rematch");assert.equal(host.state.phase,"LOBBY");assert.equal(host.state.gameNo,2);
   console.log("PASS: 3 players, automatic settings, private multiple drawings, duplicate/stale rejection, countdown, feedback/cooldown, unique score, host skip, random rounds, gallery and rematch");
 }finally{for(const client of clients)client.ws.close()}

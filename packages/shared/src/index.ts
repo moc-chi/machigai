@@ -1,4 +1,5 @@
 import { z } from "zod";
+export { AREA_RULES, areaPoints } from "./scoring";
 
 export const IMAGES = [
   { id: "bakery", src: "/assets/bakery.png", width: 1536, height: 1024, deck: "animals" },
@@ -6,6 +7,11 @@ export const IMAGES = [
   { id: "camping", src: "/assets/camping.png", width: 1456, height: 1092, deck: "animals" },
   { id: "space", src: "/assets/space.png", width: 1456, height: 1092, deck: "animals" },
   { id: "onsen", src: "/assets/onsen.png", width: 1456, height: 1092, deck: "animals" },
+  { id: "people-market", src: "/assets/people-market.png", width: 1448, height: 1086, deck: "people" },
+  { id: "people-park", src: "/assets/people-park.png", width: 1448, height: 1086, deck: "people" },
+  { id: "people-kitchen", src: "/assets/people-kitchen.png", width: 1448, height: 1086, deck: "people" },
+  { id: "people-library", src: "/assets/people-library.png", width: 1448, height: 1086, deck: "people" },
+  { id: "people-festival", src: "/assets/people-festival.png", width: 1448, height: 1086, deck: "people" },
 ] as const;
 export const GAME_DEFAULTS = {
   minPlayers: 2, maxPlayers: 10, stageCount: 1, differencesPerPlayer: 1,
@@ -19,7 +25,7 @@ export const SettingsUpdateSchema = z.object({
   differencesPerPlayer: z.number().int().min(1).max(5).optional(),
   drawingSeconds: z.number().int().min(30).max(300).optional(),
   answeringSeconds: z.number().int().min(30).max(300).optional(),
-  deckId: z.literal("animals").optional(),
+  deckId: z.enum(["animals", "people"]).optional(),
   // Compatibility for the old preview: individual choices now select their deck.
   imageUrl: z.enum(["/assets/bakery.png", "/assets/harbor.png", "/assets/camping.png", "/assets/space.png", "/assets/onsen.png"]).optional(),
 }).strict().refine(value => Object.keys(value).length > 0);
@@ -49,12 +55,13 @@ export type ClientCommand = z.infer<typeof ClientCommandSchema>;
 export type Point = z.infer<typeof PointSchema>;
 export type Stroke = z.infer<typeof StrokeSchema>;
 export type DifferenceInput = z.infer<typeof DifferenceSchema>;
-export type Phase = "LOBBY" | "DRAWING" | "COUNTDOWN" | "ANSWERING" | "ROUND_RESULT" | "FINAL_RESULT" | "ENDED";
+export type Phase = "LOBBY" | "DRAWING" | "COUNTDOWN" | "ANSWERING" | "ANSWER_REVEAL" | "ROUND_RESULT" | "FINAL_RESULT" | "ENDED";
 export type Participant = { id: string; nickname: string; joinOrder: number; connected: boolean; ready: boolean; score: number; isHost: boolean; confirmed: boolean; confirmedCount?: number; answerBlockedUntil?: string };
-export type Difference = { id: string; creatorId: string; strokes: Stroke[]; foundBy?: string; foundAt?: string };
-export type RoundReview = { stageNo: number; imageUrl: string; differences: Difference[] };
+export type Difference = { id: string; creatorId: string; strokes: Stroke[]; foundBy?: string; foundAt?: string; points?: {finder:number;unfound:number} };
+export type ScoreBreakdown = { participantId: string; found: number; unfound: number; penalty: number; total: number };
+export type RoundReview = { stageNo: number; imageUrl: string; differences: Difference[]; scores?: ScoreBreakdown[] };
 export type RoomSnapshot = { roomId: string; roomCode: string; phase: Phase; revision: number; gameNo: number; stageNo: number; stageCount: number; imageUrl: string; phaseEndsAt?: string; selfId: string; participants: Participant[]; differences: Difference[]; settings: GameSettings; rounds?: RoundReview[] };
-export type AnswerFeedback = { participantId: string; result: "CORRECT" | "MISS" | "ALREADY_FOUND" | "COOLDOWN"; differenceId?: string; at: string; blockedUntil?: string; scoreDelta?: number };
+export type AnswerFeedback = { participantId: string; result: "CORRECT" | "MISS" | "ALREADY_FOUND" | "COOLDOWN" | "OWN_DIFFERENCE"; differenceId?: string; at: string; blockedUntil?: string; scoreDelta?: number };
 export type ServerEvent =
   | { type: "state.snapshot"; revision: number; payload: RoomSnapshot }
   | { type: "command.ack"; revision: number; payload: { commandId: string } }
@@ -63,7 +70,9 @@ export type ServerEvent =
 export type CreateRoomResponse = { roomId: string; roomCode: string; participantId: string; reconnectSecret: string; socketUrl: string };
 export type JoinRoomResponse = CreateRoomResponse;
 export function commandId(): string { return crypto.randomUUID(); }
-export function chooseImage(previous: string | undefined, random = Math.random()): string {
-  const choices = IMAGES.filter(image => image.src !== previous);
+export function chooseImage(previous: string | undefined, random = Math.random(), deck = "animals"): string {
+  const series = IMAGES.filter(image => image.deck === deck);
+  const candidates = series.filter(image => image.src !== previous);
+  const choices = candidates.length ? candidates : series;
   return choices[Math.min(choices.length - 1, Math.floor(Math.max(0, random) * choices.length))]!.src;
 }
