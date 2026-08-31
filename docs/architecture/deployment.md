@@ -1,5 +1,15 @@
 # 公開・運用設計
 
+### 2026-08-31 14時台の再公開（現在の公開先）
+
+- URL: https://machigai-party.perpetual-sodalite.workers.dev
+- 新規一時アカウント: `Perpetual Sodalite`。期限切れのため新規作成が必要な旨と規約・プライバシーポリシー同意を説明し、ユーザーの「はい」で今回の作成を承認後に実行。支払い登録・正式アカウント接続はなし。
+- 保存期限: 2026-08-31T06:06:17Z（日本時間2026-08-31 15:06:17）。以降は利用保証なし。将来の新規作成には改めて同意を得る。
+- 対象コミット: `5755abf`。アプリ内容は前回から変更なし。Worker Version ID: `edff504c-6b9d-4eca-9460-8a43c6e2ba6b`。
+- production build / Worker dry-run再実行成功。公開先トップ・health・人間元画像は200、公開先3人対戦スモーク成功。
+- 同一コードの単体22件・3ブラウザ6件は前回成功結果を使用し、今回の再公開では再実行していない。
+- Gitのfeat/mvp-foundationはpush済み。秘密情報・Claim URLは記録しない。
+
 ### 2026-08-31 ルールモーダル・縦長共有への更新
 
 - 同じ公開URL https://machigai-party.complex-station-dc7.workers.dev を更新。`Complex Station`を再利用し、新規アカウントは作成していない。
