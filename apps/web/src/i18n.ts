@@ -6,6 +6,11 @@ export const LANGUAGES = [
 export type Language = typeof LANGUAGES[number][0];
 export const LanguageContext = createContext<Language>("ja");
 export const translations = [
+  ["rules","ルールを見る","View rules","查看规则","查看規則","규칙 보기","Regeln ansehen","Voir les règles","Ver reglas","Ver regras"],
+  ["close","閉じる","Close","关闭","關閉","닫기","Schließen","Fermer","Cerrar","Fechar"],
+  ["rulesFlow","設定された数の間違いを1個ずつ描いて確定。全員の絵が合わさったら、間違いのある絵をタップして早押しで見つけよう！最終的に合計点が高い人が勝ちです。","Draw and confirm each difference. Then tap the picture with differences to find them first! The highest total score wins.","逐个画出并确认不同之处。然后点击有不同的图片，抢先找到！总分最高者获胜。","逐個畫出並確認不同之處。然後點擊有不同的圖片，搶先找到！總分最高者獲勝。","차이를 하나씩 그리고 확정하세요. 틀린 그림을 눌러 먼저 찾아보세요! 총점이 가장 높은 사람이 이겨요.","Zeichnet und bestätigt jeden Unterschied. Tippt danach auf das veränderte Bild und findet sie zuerst! Die höchste Gesamtpunktzahl gewinnt.","Dessinez et validez chaque différence. Touchez ensuite l’image modifiée pour les trouver en premier ! Le meilleur total gagne.","Dibuja y confirma cada diferencia. Luego toca la imagen modificada para encontrarlas primero. ¡Gana la puntuación total más alta!","Desenhe e confirme cada diferença. Depois toque na imagem modificada para encontrar primeiro! A maior pontuação total vence."],
+  ["rulesPenalty","誤回答は{seconds}秒間回答不可・{points}点減点（最低0点）。元の絵へのタップは減点されません。","Wrong answers block answering for {seconds} seconds and deduct {points} points (minimum 0). Tapping the original image costs no points.","答错后{seconds}秒内不能回答，扣{points}分（最低0分）。点击原图不扣分。","答錯後{seconds}秒內不能回答，扣{points}分（最低0分）。點擊原圖不扣分。","오답은 {seconds}초간 답변 불가, {points}점 감점(최소 0점). 원본 그림을 누르면 감점되지 않아요.","Falsche Antworten: {seconds} Sekunden Pause und {points} Punkte Abzug (mindestens 0). Tippen auf das Original kostet keine Punkte.","Erreur : pause de {seconds} secondes et retrait de {points} points (minimum 0). Toucher l’original ne retire aucun point.","Error: bloqueo de {seconds} segundos y pérdida de {points} puntos (mínimo 0). Tocar el original no resta puntos.","Erro: bloqueio por {seconds} segundos e perda de {points} pontos (mínimo 0). Tocar no original não tira pontos."],
+  ["answerOnChanged","こちらは元の絵です。「間違いのある絵」をタップしてください。","This is the original. Tap the picture with differences.","这是原图，请点击有不同的图片。","這是原圖，請點擊有不同的圖片。","원본 그림이에요. 틀린 그림을 눌러 주세요.","Das ist das Original. Tippe auf das Bild mit den Unterschieden.","C’est l’original. Touchez l’image avec les différences.","Esta es la original. Toca la imagen con diferencias.","Esta é a original. Toque na imagem com as diferenças."],
   ["notVisible","変化が小さすぎるか、確定済みの絵と同じです。色や太さを変えてください。","The change is too small or duplicates your drawing. Change its color or thickness.","变化太小或与已确认的绘画重复。请更改颜色或粗细。","變化太小或與已確認的繪畫重複。請更改顏色或粗細。","변화가 너무 작거나 기존 그림과 같아요. 색이나 굵기를 바꿔 주세요.","Die Änderung ist zu klein oder doppelt. Ändere Farbe oder Stärke.","Le changement est trop petit ou identique. Modifiez la couleur ou l’épaisseur.","El cambio es demasiado pequeño o repetido. Cambia el color o el grosor.","A mudança é pequena demais ou repetida. Mude a cor ou a espessura."],
   ["tooComplex","線が複雑すぎます。線を減らして確定してください。","Too many complex strokes. Remove some and try again.","线条过于复杂。请减少线条后重试。","線條過於複雜。請減少線條後重試。","선이 너무 복잡해요. 줄인 후 다시 시도하세요.","Zu komplex. Entferne einige Linien.","Trop complexe. Retirez quelques traits.","Demasiado complejo. Elimina algunos trazos.","Muito complexo. Remova alguns traços."],
   ["areaRule","見える変更面積：小〈1%未満〉150 / 50点、中〈1〜3%〉100 / 100点、大〈3%以上〉50 / 150点（発見 / 未発見）","Visible area: small <1% 150/50, medium 1–3% 100/100, large ≥3% 50/150 (found/unfound)","可见面积：小<1% 150/50，中1–3% 100/100，大≥3% 50/150（发现/未发现）","可見面積：小<1% 150/50，中1–3% 100/100，大≥3% 50/150（發現/未發現）","보이는 면적: 소 <1% 150/50, 중 1–3% 100/100, 대 ≥3% 50/150 (발견/미발견)","Sichtbare Fläche: klein <1% 150/50, mittel 1–3% 100/100, groß ≥3% 50/150 (gefunden/unentdeckt)","Surface visible : petite <1% 150/50, moyenne 1–3% 100/100, grande ≥3% 50/150 (trouvée/non trouvée)","Área visible: pequeña <1% 150/50, media 1–3% 100/100, grande ≥3% 50/150 (encontrada/no encontrada)","Área visível: pequena <1% 150/50, média 1–3% 100/100, grande ≥3% 50/150 (encontrada/não encontrada)"],
@@ -456,15 +461,15 @@ export const translations = [
   ],
   [
     "advance",
-    "このフェーズを終了",
-    "End this phase",
-    "结束此阶段",
-    "結束此階段",
-    "이 단계 종료",
-    "Phase beenden",
-    "Terminer cette phase",
-    "Terminar esta fase",
-    "Encerrar esta fase"
+    "このフェーズを終了（ホストのみ）",
+    "End this phase (host only)",
+    "结束此阶段（仅房主）",
+    "結束此階段（僅房主）",
+    "이 단계 종료 (방장만)",
+    "Phase beenden (nur Host)",
+    "Terminer cette phase (hôte uniquement)",
+    "Terminar esta fase (solo anfitrión)",
+    "Encerrar esta fase (somente anfitrião)"
   ],
   [
     "advanceConfirm",
