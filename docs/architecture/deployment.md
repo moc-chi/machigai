@@ -1,5 +1,13 @@
 # 公開・運用設計
 
+### 2026-09-01 23時台のトップ作例更新（現在の公開先）
+
+- URL: https://machigai-party.secretive-dash.workers.dev
+- 既存の一時アカウント `Secretive Dash` を期限内に再利用。新規アカウント、正式アカウント接続、支払い登録はなし。
+- 対象コミット: `33f3b9f`。Worker Version ID: `7ee89982-c420-4913-a665-5e24df4374d0`。
+- トップの単純な線・星を廃止し、パン屋の題材に合わせたカップケーキ・バゲット・鉢植えの描き足しへ変更。
+- 型検査、単体24件、production build / Worker dry-run、3ブラウザ6件、結合／ホスト移譲に成功。公開先API health 200と3人対戦スモークを確認。秘密情報・Claim URLは記録しない。
+
 ### 2026-09-01 22時台のルール改善と新規一時公開（現在の公開先）
 
 - URL: https://machigai-party.secretive-dash.workers.dev
