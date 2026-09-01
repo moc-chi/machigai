@@ -4,7 +4,7 @@ import { fileURLToPath } from "node:url";
 import { AREA_RULES } from "../packages/shared/src/scoring.ts";
 const directory=new URL("../apps/web/public/assets/",import.meta.url);
 for(const name of await readdir(directory)){
-  if(!name.endsWith(".png"))continue;
+  if(!name.endsWith(".png")||name.endsWith("-changed.png"))continue;
   const file=fileURLToPath(new URL(name,directory)),metadata=await sharp(file).metadata();
   const width=AREA_RULES.sampleWidth,height=Math.round(width*metadata.height/metadata.width);
   const rgb=await sharp(file).resize(width,height,{kernel:"nearest"}).removeAlpha().toColourspace("srgb").raw().toBuffer();

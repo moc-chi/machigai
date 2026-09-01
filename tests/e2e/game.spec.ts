@@ -5,6 +5,8 @@ async function enter(page:Page,name:string,code?:string){
   if(!code){
     await expect(page.getByRole("heading",{name:"みんなで間違い探しを作ろう！"})).toBeVisible();
     await expect(page.getByTestId("hero-sample").locator("figure")).toHaveCount(2);
+    await expect(page.getByTestId("hero-sample").locator('img[src="/assets/bakery-changed.png"]')).toHaveCount(1);
+    await expect.poll(()=>page.getByTestId("hero-sample").locator("img").evaluateAll(images=>images.every(image=>(image as HTMLImageElement).complete&&(image as HTMLImageElement).naturalWidth===1536))).toBe(true);
     const heroFigures=await page.getByTestId("hero-sample").locator("figure").all();const first=await heroFigures[0].boundingBox(),second=await heroFigures[1].boundingBox();
     expect(second!.y).toBeGreaterThan(first!.y+first!.height-1);
     await page.getByRole("button",{name:"部屋をつくる",exact:false}).click();

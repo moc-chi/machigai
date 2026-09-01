@@ -1,5 +1,30 @@
 # 公開・運用設計
 
+### 2026-09-01 23時台の間違い版画像差し替え（現在の公開先）
+
+- URL: https://machigai-party.secretive-dash.workers.dev
+- 既存の一時アカウント `Secretive Dash` を期限内に再利用。公開時点の残り時間は約7分。
+- 対象コミット: `05eb228`。Worker Version ID: `7537532a-524d-4ef4-b38a-b0a17f95e9a2`。
+- ユーザー提供の1536×1024画像をトップ専用の間違い版として追加し、SVG描き足しを削除。判定用RGB生成から除外。
+- 型検査、単体24件、production build / Worker dry-run、3ブラウザ6件、結合／ホスト移譲に成功。公開先の画像／API health 200と3人対戦スモークを確認。秘密情報・Claim URLは記録しない。
+
+### 2026-09-01 23時台のトップ作例更新（現在の公開先）
+
+- URL: https://machigai-party.secretive-dash.workers.dev
+- 既存の一時アカウント `Secretive Dash` を期限内に再利用。新規アカウント、正式アカウント接続、支払い登録はなし。
+- 対象コミット: `33f3b9f`。Worker Version ID: `7ee89982-c420-4913-a665-5e24df4374d0`。
+- トップの単純な線・星を廃止し、パン屋の題材に合わせたカップケーキ・バゲット・鉢植えの描き足しへ変更。
+- 型検査、単体24件、production build / Worker dry-run、3ブラウザ6件、結合／ホスト移譲に成功。公開先API health 200と3人対戦スモークを確認。秘密情報・Claim URLは記録しない。
+
+### 2026-09-01 22時台のルール改善と新規一時公開（現在の公開先）
+
+- URL: https://machigai-party.secretive-dash.workers.dev
+- 新規一時アカウント: `Secretive Dash`。旧アカウント失効後、事前説明と今回の明示承認に基づき作成。正式アカウント接続・支払い登録はなし。
+- 保存期限: 作成から約60分（日本時間2026-09-01 23:52頃）。恒久公開ではない。
+- 対象コミット: `8187800`。Worker Version ID: `1c600886-3806-4ff9-b641-8a0041285376`。
+- トップ比較画像のラベル削除・縦配置、案Aの面積別得点説明と3列表、簡潔な誤答／全発見文言を反映。
+- 型検査、単体24件、production build / Worker dry-run、3ブラウザ6件、結合／ホスト移譲に成功。公開先はトップ／API health 200と3人対戦スモークを確認（新規DOの初回起動に12秒超を要したため確認時のみ30秒待機）。秘密情報・Claim URLは記録しない。
+
 ### 2026-09-01 22時台の機能更新と再公開（現在の公開先）
 
 - URL: https://machigai-party.worried-albatross-b0d.workers.dev
