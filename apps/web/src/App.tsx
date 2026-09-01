@@ -88,11 +88,7 @@ function Home({onSession}:{onSession:(session:Session)=>void}){
   const submit=async()=>{setBusy(true);setError("");try{const result=await api(mode==="create"?"/api/v1/rooms":"/api/v1/rooms/join",{nickname,roomCode:code});onSession({...result,nickname})}catch(error){setError(error instanceof Error?error.message:"ERROR")}finally{setBusy(false)}};
   return <section className="home"><div><p className="eyebrow">2–10 PLAYERS</p><h1>{t("homeTitle")}</h1><p className="lead">{t("homeLead")}</p><div className="home-actions"><button className="primary" onClick={()=>setMode("create")}>{t("create")} →</button><button onClick={()=>setMode("join")}>{t("join")}</button></div></div><div className="hero-sample" data-testid="hero-sample">
     <figure><img src="/assets/bakery.png" alt={t("original")}/></figure>
-    <figure><div className="hero-changed"><img src="/assets/bakery.png" alt={t("changed")}/><svg viewBox="0 0 100 66.67" aria-hidden="true">
-      <g className="hero-added cupcake" transform="translate(16 20)"><path className="fill-coral" d="M1 4.8h7l-1 5.5H2z"/><path className="fill-cream" d="M1.2 4.7c-.8-1.7.5-3 2-2.8C3.6.2 6 .2 6.3 2c1.8-.1 2.6 1.4 1.5 2.7z"/><path d="M3.2 6l.3 3m2-3-.3 3M4.6 1.2V0"/></g>
-      <g className="hero-added baguette" transform="translate(60 43) rotate(-12)"><path className="fill-bread" d="M0 3c0-2 1.4-3 3-3h8c1.7 0 3 1.2 3 3s-1.3 3-3 3H3C1.3 6 0 5 0 3z"/><path d="M4 1.2L2.8 3.4m5-2.2L6.6 3.4m5-2.2-1.2 2.2"/></g>
-      <g className="hero-added plant" transform="translate(78 15)"><path className="fill-pot" d="M1.2 6.5h7l-1 4.5h-5z"/><path className="leaf" d="M4.7 6.5C1.6 5.8.8 3.7 1.4 1.7c2.4.2 3.6 1.7 3.3 4.8zm.1 0C7.8 5.7 9 3.5 8.3 1.2 6 1.6 4.6 3.5 4.8 6.5z"/><path d="M4.7 6.7V2.8"/></g>
-    </svg></div></figure>
+    <figure><img src="/assets/bakery-changed.png" alt={t("changed")}/></figure>
   </div>
     {mode&&<div className="modal-backdrop"><form className="modal" onSubmit={e=>{e.preventDefault();void submit()}}><h2>{t(mode)}</h2><label>{t("nickname")}<input autoFocus required maxLength={20} value={nickname} onChange={e=>setNickname(e.target.value)}/></label>{mode==="join"&&<label>{t("code")}<input required minLength={6} maxLength={6} value={code} onChange={e=>setCode(e.target.value.toUpperCase())}/></label>}<button className="primary" disabled={busy||!nickname.trim()}>{busy?t("loading"):t(mode)}</button><button type="button" onClick={()=>setMode(null)}>{t("cancel")}</button>{error&&<p role="alert">{t(errorKey(error))}</p>}</form></div>}
   </section>;
