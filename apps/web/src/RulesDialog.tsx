@@ -15,10 +15,10 @@ export function RulesDialog() {
     <button ref={trigger} className="rules-button" onClick={()=>setOpen(true)}>{t("rules")}</button>
     <dialog ref={dialog} className="rules-dialog" aria-labelledby="rules-title" onClose={()=>{setOpen(false);trigger.current?.focus()}}>
       <h2 id="rules-title">{t("rules")}</h2>
-      <p>{t("rulesFlow")}</p>
-      <p>{t("own")}</p>
-      <p>{t("areaRule")}</p>
-      <p>{t("rulesPenalty",{seconds:GAME_DEFAULTS.missCooldownSeconds,points:GAME_DEFAULTS.missPenalty})}</p>
+      <ol className="rule-steps">
+        {[t("ruleDraw"),t("ruleFind"),t("ruleCompete")].map((text,index)=><li key={text}><b>{index+1}</b><span>{text}</span></li>)}
+      </ol>
+      <section className="rule-details"><h3>{t("ruleDetails")}</h3><p>{t("own")}</p><p>{t("areaRule")}</p><p>{t("rulesPenalty",{seconds:GAME_DEFAULTS.missCooldownSeconds,points:GAME_DEFAULTS.missPenalty})}</p></section>
       <button autoFocus onClick={()=>setOpen(false)}>{t("close")}</button>
     </dialog>
   </>;
