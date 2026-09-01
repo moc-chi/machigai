@@ -1,5 +1,13 @@
 # 公開・運用設計
 
+### 2026-09-01 23時台の間違い版画像差し替え（現在の公開先）
+
+- URL: https://machigai-party.secretive-dash.workers.dev
+- 既存の一時アカウント `Secretive Dash` を期限内に再利用。公開時点の残り時間は約7分。
+- 対象コミット: `05eb228`。Worker Version ID: `7537532a-524d-4ef4-b38a-b0a17f95e9a2`。
+- ユーザー提供の1536×1024画像をトップ専用の間違い版として追加し、SVG描き足しを削除。判定用RGB生成から除外。
+- 型検査、単体24件、production build / Worker dry-run、3ブラウザ6件、結合／ホスト移譲に成功。公開先の画像／API health 200と3人対戦スモークを確認。秘密情報・Claim URLは記録しない。
+
 ### 2026-09-01 23時台のトップ作例更新（現在の公開先）
 
 - URL: https://machigai-party.secretive-dash.workers.dev
