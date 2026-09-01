@@ -1,5 +1,14 @@
 # 公開・運用設計
 
+### 2026-09-01 22時台の機能更新と再公開（現在の公開先）
+
+- URL: https://machigai-party.worried-albatross-b0d.workers.dev
+- 既存の一時アカウント `Worried Albatross` を期限内に再利用。新規アカウント、正式アカウント接続、支払い登録はなし。
+- 保存期限: 2026-09-01T13:51:47Z（日本時間2026-09-01 22:51:47）。更新しても期限は延長されない。
+- 対象コミット: `b55b41e`。Worker Version ID: `c27dcdac-9fb7-4751-84df-775d70a16c2c`。
+- トップの共同制作コピーと2画面サンプル、3ステップのルール説明、設定数入り描画見出し、指定SNS共有文面を反映。
+- 型検査、単体23件、production build / Worker dry-run、3ブラウザ6件、結合／ホスト移譲、公開先3人対戦スモーク、トップ／API health 200を確認。秘密情報・Claim URLは記録しない。
+
 ### 2026-09-01 21時台の再公開（現在の公開先）
 
 - URL: https://machigai-party.worried-albatross-b0d.workers.dev
