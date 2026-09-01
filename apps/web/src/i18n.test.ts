@@ -14,4 +14,12 @@ describe("translations", () => {
     expect(translate("ja","progress",{n:2,total:5})).toBe("確定 2 / 5");
     expect(translate("de","progress",{n:2,total:5})).toBe("Bestätigt 2 / 5");
   });
+  it("uses the configured drawing count and requested Japanese share copy", () => {
+    expect(translate("ja","drawingCount",{n:5})).toBe("間違いを5つ描こう");
+    expect(translate("ja","shareText")).toBe("まちがいパーティで間違い探しを作りました！ #DifferenceParty");
+  });
+  it("keeps the approved concise rule and reveal copy", () => {
+    expect(translate("ja","rulesPenalty")).toBe("誤回答は減点されます。");
+    expect(translate("ja","reveal")).toBe("すべて発見！");
+  });
 });

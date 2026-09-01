@@ -8,8 +8,19 @@ export const LanguageContext = createContext<Language>("ja");
 export const translations = [
   ["rules","ルールを見る","View rules","查看规则","查看規則","규칙 보기","Regeln ansehen","Voir les règles","Ver reglas","Ver regras"],
   ["close","閉じる","Close","关闭","關閉","닫기","Schließen","Fermer","Cerrar","Fechar"],
+  ["ruleDraw","描く：全員が元の絵に、設定された数の間違いを描いて確定します。","Draw: Everyone adds and confirms the selected number of differences on the original picture.","画：每个人在原图上画出设定数量的不同并确认。","畫：每個人在原圖上畫出設定數量的不同並確認。","그리기: 모두 원본 그림에 설정된 수만큼 차이를 그리고 확정해요.","Zeichnen: Alle fügen die eingestellte Anzahl Unterschiede ins Original ein und bestätigen sie.","Dessiner : chacun ajoute à l’original le nombre de différences choisi, puis les valide.","Dibujar: cada persona añade al original la cantidad elegida de diferencias y las confirma.","Desenhar: cada pessoa adiciona à imagem original o número escolhido de diferenças e confirma."],
+  ["ruleFind","探す：みんなの間違いを重ねた絵から、他の人が描いた間違いを早押しで探します。","Find: Race to spot the differences drawn by the other players in the combined picture.","找：在合并了所有改动的图片中，抢先找出其他人画的不同。","找：在合併了所有改動的圖片中，搶先找出其他人畫的不同。","찾기: 모두의 차이가 합쳐진 그림에서 다른 사람이 그린 차이를 먼저 찾아요.","Finden: Sucht im gemeinsamen Bild so schnell wie möglich die Unterschiede der anderen.","Trouver : repérez au plus vite les différences dessinées par les autres dans l’image combinée.","Buscar: encuentra antes que nadie las diferencias de los demás en la imagen combinada.","Encontrar: procure primeiro as diferenças dos outros na imagem combinada."],
+  ["ruleCompete","競う：見つけた間違いと、最後まで見つからなかった自分の間違いで得点。合計点が高い人の勝ちです。","Compete: Score for differences you find and for your own differences that remain hidden. Highest total wins.","比：找到不同可以得分，自己画的不同若最后没被找到也能得分。总分最高者获胜。","比：找到不同可以得分，自己畫的不同若最後沒被找到也能得分。總分最高者獲勝。","경쟁: 찾은 차이와 끝까지 들키지 않은 내 차이로 점수를 얻어요. 총점이 가장 높은 사람이 이겨요.","Punkten: Punkte gibt es für gefundene und für eigene unentdeckte Unterschiede. Die höchste Gesamtpunktzahl gewinnt.","Gagner : marquez des points pour les différences trouvées et les vôtres restées cachées. Le meilleur total gagne.","Competir: suma puntos por las diferencias encontradas y por las tuyas que nadie descubra. Gana el total más alto.","Competir: ganhe pontos pelas diferenças encontradas e pelas suas que ninguém achar. Vence a maior pontuação."],
+  ["ruleDetails","得点とペナルティ","Scoring and penalties","得分与处罚","得分與處罰","점수와 페널티","Punkte und Strafen","Score et pénalités","Puntos y penalizaciones","Pontos e penalidades"],
   ["rulesFlow","設定された数の間違いを1個ずつ描いて確定。全員の絵が合わさったら、間違いのある絵をタップして早押しで見つけよう！最終的に合計点が高い人が勝ちです。","Draw and confirm each difference. Then tap the picture with differences to find them first! The highest total score wins.","逐个画出并确认不同之处。然后点击有不同的图片，抢先找到！总分最高者获胜。","逐個畫出並確認不同之處。然後點擊有不同的圖片，搶先找到！總分最高者獲勝。","차이를 하나씩 그리고 확정하세요. 틀린 그림을 눌러 먼저 찾아보세요! 총점이 가장 높은 사람이 이겨요.","Zeichnet und bestätigt jeden Unterschied. Tippt danach auf das veränderte Bild und findet sie zuerst! Die höchste Gesamtpunktzahl gewinnt.","Dessinez et validez chaque différence. Touchez ensuite l’image modifiée pour les trouver en premier ! Le meilleur total gagne.","Dibuja y confirma cada diferencia. Luego toca la imagen modificada para encontrarlas primero. ¡Gana la puntuación total más alta!","Desenhe e confirme cada diferença. Depois toque na imagem modificada para encontrar primeiro! A maior pontuação total vence."],
-  ["rulesPenalty","誤回答は{seconds}秒間回答不可・{points}点減点（最低0点）。元の絵へのタップは減点されません。","Wrong answers block answering for {seconds} seconds and deduct {points} points (minimum 0). Tapping the original image costs no points.","答错后{seconds}秒内不能回答，扣{points}分（最低0分）。点击原图不扣分。","答錯後{seconds}秒內不能回答，扣{points}分（最低0分）。點擊原圖不扣分。","오답은 {seconds}초간 답변 불가, {points}점 감점(최소 0점). 원본 그림을 누르면 감점되지 않아요.","Falsche Antworten: {seconds} Sekunden Pause und {points} Punkte Abzug (mindestens 0). Tippen auf das Original kostet keine Punkte.","Erreur : pause de {seconds} secondes et retrait de {points} points (minimum 0). Toucher l’original ne retire aucun point.","Error: bloqueo de {seconds} segundos y pérdida de {points} puntos (mínimo 0). Tocar el original no resta puntos.","Erro: bloqueio por {seconds} segundos e perda de {points} pontos (mínimo 0). Tocar no original não tira pontos."],
+  ["rulesPenalty","誤回答は減点されます。","Wrong answers lose points.","答错会扣分。","答錯會扣分。","오답은 감점됩니다.","Für falsche Antworten werden Punkte abgezogen.","Les mauvaises réponses font perdre des points.","Las respuestas incorrectas restan puntos.","Respostas erradas perdem pontos."],
+  ["areaIntro","間違いの大きさで得点が変わります。小さい間違いは見つけると高得点、大きい間違いは見つからずに残ると高得点です。","Points depend on the difference size. Finding a small difference scores more; leaving a large difference undiscovered scores its creator more.","得分会根据不同之处的大小变化。找到较小的不同得分更高；较大的不同若未被找到，绘制者得分更高。","得分會根據不同之處的大小變化。找到較小的不同得分更高；較大的不同若未被找到，繪製者得分更高。","차이의 크기에 따라 점수가 달라져요. 작은 차이를 찾으면 높은 점수, 큰 차이가 끝까지 발견되지 않으면 그린 사람이 높은 점수를 받아요.","Die Punktzahl hängt von der Größe ab. Kleine Unterschiede bringen beim Finden mehr, große unentdeckte Unterschiede ihrem Ersteller.","Les points dépendent de la taille. Trouver une petite différence rapporte plus ; une grande différence non trouvée rapporte plus à son auteur.","Los puntos dependen del tamaño. Encontrar una diferencia pequeña da más puntos; una grande sin descubrir da más puntos a quien la dibujó.","Os pontos dependem do tamanho. Encontrar uma diferença pequena vale mais; uma grande não encontrada vale mais para quem a desenhou."],
+  ["differenceSize","大きさ","Size","大小","大小","크기","Größe","Taille","Tamaño","Tamanho"],
+  ["finder","見つけた人","Finder","发现者","發現者","찾은 사람","Gefunden","Trouvée","Quien encuentra","Quem encontra"],
+  ["creator","描いた人","Creator","绘制者","繪製者","그린 사람","Erstellt","Créateur","Quien dibuja","Quem desenha"],
+  ["sizeSmall","小","Small","小","小","작음","Klein","Petite","Pequeña","Pequena"],
+  ["sizeMedium","中","Medium","中","中","중간","Mittel","Moyenne","Mediana","Média"],
+  ["sizeLarge","大","Large","大","大","큼","Groß","Grande","Grande","Grande"],
   ["answerOnChanged","こちらは元の絵です。「間違いのある絵」をタップしてください。","This is the original. Tap the picture with differences.","这是原图，请点击有不同的图片。","這是原圖，請點擊有不同的圖片。","원본 그림이에요. 틀린 그림을 눌러 주세요.","Das ist das Original. Tippe auf das Bild mit den Unterschieden.","C’est l’original. Touchez l’image avec les différences.","Esta es la original. Toca la imagen con diferencias.","Esta é a original. Toque na imagem com as diferenças."],
   ["notVisible","変化が小さすぎるか、確定済みの絵と同じです。色や太さを変えてください。","The change is too small or duplicates your drawing. Change its color or thickness.","变化太小或与已确认的绘画重复。请更改颜色或粗细。","變化太小或與已確認的繪畫重複。請更改顏色或粗細。","변화가 너무 작거나 기존 그림과 같아요. 색이나 굵기를 바꿔 주세요.","Die Änderung ist zu klein oder doppelt. Ändere Farbe oder Stärke.","Le changement est trop petit ou identique. Modifiez la couleur ou l’épaisseur.","El cambio es demasiado pequeño o repetido. Cambia el color o el grosor.","A mudança é pequena demais ou repetida. Mude a cor ou a espessura."],
   ["tooComplex","線が複雑すぎます。線を減らして確定してください。","Too many complex strokes. Remove some and try again.","线条过于复杂。请减少线条后重试。","線條過於複雜。請減少線條後重試。","선이 너무 복잡해요. 줄인 후 다시 시도하세요.","Zu komplex. Entferne einige Linien.","Trop complexe. Retirez quelques traits.","Demasiado complejo. Elimina algunos trazos.","Muito complexo. Remova alguns traços."],
@@ -28,15 +39,15 @@ export const translations = [
   ],
   [
     "homeTitle",
-    "描いて、見つけて、いちばん乗り！",
-    "Draw it. Find it. Be first!",
-    "画出不同，抢先找到！",
-    "畫出不同，搶先找到！",
-    "그리고, 찾고, 먼저 맞혀요!",
-    "Zeichnen. Finden. Erster sein!",
-    "Dessinez. Trouvez. Gagnez !",
-    "¡Dibuja, encuentra y gana!",
-    "Desenhe, encontre e ganhe!"
+    "みんなで間違い探しを作ろう！",
+    "Create a spot-the-difference puzzle together!",
+    "大家一起制作找不同游戏吧！",
+    "大家一起製作找不同遊戲吧！",
+    "다 함께 틀린그림찾기를 만들어요!",
+    "Erstellt gemeinsam ein Fehlersuchbild!",
+    "Créez ensemble un jeu des différences !",
+    "¡Creen juntos un juego de diferencias!",
+    "Criem juntos um jogo dos sete erros!"
   ],
   [
     "homeLead",
@@ -861,7 +872,7 @@ export const translations = [
   ]
   ,["people","まちの人々","People in town","小镇居民","小鎮居民","마을 사람들","Menschen in der Stadt","Gens de la ville","Gente de la ciudad","Pessoas da cidade"]
   ,["own","自分で描いた間違いには回答できません","You cannot answer your own difference","不能回答自己画的不同之处","不能回答自己畫的不同之處","자신이 그린 차이에는 답할 수 없어요","Du kannst deinen eigenen Unterschied nicht lösen","Vous ne pouvez pas répondre à votre propre différence","No puedes responder a tu propia diferencia","Você não pode responder à sua própria diferença"]
-  ,["reveal","すべて発見！ 最後の間違いを確認しよう","All found! Take a last look","全部找到了！看看最后一处","全部找到了！看看最後一處","모두 찾았어요! 마지막 차이를 확인하세요","Alles gefunden! Schau noch einmal hin","Tout trouvé ! Un dernier coup d’œil","¡Todo encontrado! Mira la última diferencia","Tudo encontrado! Veja a última diferença"]
+  ,["reveal","すべて発見！","All found!","全部找到了！","全部找到了！","모두 찾았어요!","Alles gefunden!","Tout trouvé !","¡Todo encontrado!","Tudo encontrado!"]
   ,["winner","優勝","Winner","获胜者","獲勝者","우승","Gewonnen","Victoire","Ganador","Vencedor"]
   ,["breakdown","ラウンドの得点内訳","Round score breakdown","本轮得分明细","本回合得分明細","라운드 점수 내역","Rundenpunkte im Detail","Détail des points de la manche","Desglose de puntos de la ronda","Detalhes dos pontos da rodada"]
   ,["foundPoints","発見","Found","发现","發現","발견","Gefunden","Trouvées","Encontradas","Encontradas"]
@@ -869,7 +880,9 @@ export const translations = [
   ,["missPoints","誤回答","Wrong answers","错误回答","錯誤回答","오답","Falsche Antworten","Erreurs","Respuestas incorrectas","Respostas erradas"]
   ,["roundTotal","増減","Net change","变化","變化","변동","Änderung","Variation","Cambio neto","Variação"]
   ,["sharePreview","共有画像を見る","Preview share image","预览分享图片","預覽分享圖片","공유 이미지 미리보기","Vorschaubild ansehen","Aperçu de l’image","Ver imagen para compartir","Ver imagem de compartilhamento"]
+  ,["drawingCount","間違いを{n}つ描こう","Draw {n} differences","画出{n}处不同","畫出{n}處不同","차이 {n}개를 그려요","Zeichne {n} Unterschiede","Dessinez {n} différences","Dibuja {n} diferencias","Desenhe {n} diferenças"]
   ,["shareBadge","{n}個の間違い","{n} differences","{n}处不同","{n}處不同","차이 {n}개","{n} Unterschiede","{n} différences","{n} diferencias","{n} diferenças"]
+  ,["shareText","まちがいパーティで間違い探しを作りました！ #DifferenceParty","We made a spot-the-difference puzzle in Difference Party! #DifferenceParty","我们在找不同派对制作了一幅找不同！ #DifferenceParty","我們在找不同派對製作了一幅找不同！ #DifferenceParty","틀린그림 파티에서 틀린그림찾기를 만들었어요! #DifferenceParty","Wir haben bei Difference Party ein Fehlersuchbild erstellt! #DifferenceParty","Nous avons créé un jeu des différences avec Difference Party ! #DifferenceParty","¡Creamos un juego de diferencias en Difference Party! #DifferenceParty","Criamos um jogo dos sete erros no Difference Party! #DifferenceParty"]
 ] as const;
 export type TextKey = typeof translations[number][0];
 export function translate(language: Language, key: TextKey, values: Record<string,string|number> = {}): string {

@@ -86,7 +86,10 @@ function Home({onSession}:{onSession:(session:Session)=>void}){
   const [nickname,setNickname]=useState("");const [code,setCode]=useState(new URLSearchParams(location.search).get("room")??"");
   const [busy,setBusy]=useState(false);const [error,setError]=useState("");
   const submit=async()=>{setBusy(true);setError("");try{const result=await api(mode==="create"?"/api/v1/rooms":"/api/v1/rooms/join",{nickname,roomCode:code});onSession({...result,nickname})}catch(error){setError(error instanceof Error?error.message:"ERROR")}finally{setBusy(false)}};
-  return <section className="home"><div><p className="eyebrow">2–10 PLAYERS</p><h1>{t("homeTitle")}</h1><p className="lead">{t("homeLead")}</p><div className="home-actions"><button className="primary" onClick={()=>setMode("create")}>{t("create")} →</button><button onClick={()=>setMode("join")}>{t("join")}</button></div></div><div className="hero-image"><img src="/assets/bakery.png" alt={t("animals")}/></div>
+  return <section className="home"><div><p className="eyebrow">2–10 PLAYERS</p><h1>{t("homeTitle")}</h1><p className="lead">{t("homeLead")}</p><div className="home-actions"><button className="primary" onClick={()=>setMode("create")}>{t("create")} →</button><button onClick={()=>setMode("join")}>{t("join")}</button></div></div><div className="hero-sample" data-testid="hero-sample">
+    <figure><img src="/assets/bakery.png" alt={t("original")}/></figure>
+    <figure><div className="hero-changed"><img src="/assets/bakery.png" alt={t("changed")}/><svg viewBox="0 0 100 66.67" aria-hidden="true"><path className="hero-difference coral" d="M19 26c2-5 6-5 8 0m-7-2 6 0"/><path className="hero-difference blue" d="M64 47c3-4 6-4 9 0m-8 0c2 3 5 3 7 0"/><path className="hero-difference yellow" d="M81 19l2 4 5 .5-4 3 1 5-4-2-4 2 1-5-4-3 5-.5z"/></svg></div></figure>
+  </div>
     {mode&&<div className="modal-backdrop"><form className="modal" onSubmit={e=>{e.preventDefault();void submit()}}><h2>{t(mode)}</h2><label>{t("nickname")}<input autoFocus required maxLength={20} value={nickname} onChange={e=>setNickname(e.target.value)}/></label>{mode==="join"&&<label>{t("code")}<input required minLength={6} maxLength={6} value={code} onChange={e=>setCode(e.target.value.toUpperCase())}/></label>}<button className="primary" disabled={busy||!nickname.trim()}>{busy?t("loading"):t(mode)}</button><button type="button" onClick={()=>setMode(null)}>{t("cancel")}</button>{error&&<p role="alert">{t(errorKey(error))}</p>}</form></div>}
   </section>;
 }
@@ -122,9 +125,9 @@ function Lobby({snapshot,send,pending,leave}:{snapshot:RoomSnapshot;send:Send;pe
 function Avatar({name}:{name:string}){return <span className="avatar">{Array.from(name)[0]}</span>}
 function useNow(){const [now,setNow]=useState(Date.now());useEffect(()=>{const timer=setInterval(()=>setNow(Date.now()),200);return()=>clearInterval(timer)},[]);return now}
 function Timer({endsAt}:{endsAt?:string}){const now=useNow();const seconds=endsAt?Math.max(0,Math.ceil((Date.parse(endsAt)-now)/1000)):0;return <time className={"timer "+(seconds<15?"danger":"")}>{String(Math.floor(seconds/60)).padStart(2,"0")}:{String(seconds%60).padStart(2,"0")}</time>}
-function PhaseHeader({snapshot,title,send,pending}:{snapshot:RoomSnapshot;title:"drawing"|"find";send:Send;pending:boolean}){
+function PhaseHeader({snapshot,title,send,pending}:{snapshot:RoomSnapshot;title:string;send:Send;pending:boolean}){
   const t=useText();const host=snapshot.participants.find(p=>p.id===snapshot.selfId)?.isHost;
-  return <div className="phase-header"><div><span className="eyebrow">{t("round",{n:snapshot.stageNo})} / {snapshot.stageCount}</span><h1>{t(title)}</h1></div><Timer endsAt={snapshot.phaseEndsAt}/>{host&&snapshot.phase!=="ANSWER_REVEAL"&&<button className="advance" disabled={pending} onClick={()=>{if(confirm(t("advanceConfirm")))void send("phase.advance").catch(()=>{})}}>{t("advance")}</button>}</div>;
+  return <div className="phase-header"><div><span className="eyebrow">{t("round",{n:snapshot.stageNo})} / {snapshot.stageCount}</span><h1>{title==="find"?t("find"):title}</h1></div><Timer endsAt={snapshot.phaseEndsAt}/>{host&&snapshot.phase!=="ANSWER_REVEAL"&&<button className="advance" disabled={pending} onClick={()=>{if(confirm(t("advanceConfirm")))void send("phase.advance").catch(()=>{})}}>{t("advance")}</button>}</div>;
 }
 function ZoomControls({view,onView}:{view:View;onView:(value:View)=>void}){
   const t=useText();return <div className="zoom-controls"><label>{t("zoom")} <input aria-label={t("zoom")} type="range" min={GAME_DEFAULTS.zoomMin} max={GAME_DEFAULTS.zoomMax} step=".05" value={view.zoom} onChange={e=>onView({...view,zoom:Number(e.target.value)})}/><output>{Math.round(view.zoom*100)}%</output></label><button onClick={()=>onView(initialView)}><RotateCcw/>{t("reset")}</button></div>;
@@ -135,7 +138,7 @@ function Drawing({snapshot,send,pending}:{snapshot:RoomSnapshot;send:Send;pendin
   const [tool,setTool]=useState<Tool>("draw");const [color,setColor]=useState("#111111");const [width,setWidth]=useState(.008);
   const [submitting,setSubmitting]=useState(false);const count=me.confirmedCount??0;
   const confirmDraft=async()=>{if(!drafts.length||submitting)return;setSubmitting(true);try{await send("difference.confirm",{strokes:drafts});setDrafts([])}catch{/* Retain the draft until an authoritative acknowledgement. */}finally{setSubmitting(false)}};
-  return <section><PhaseHeader snapshot={snapshot} title="drawing" send={send} pending={pending}/>
+  return <section><PhaseHeader snapshot={snapshot} title={t("drawingCount",{n:snapshot.settings.differencesPerPlayer})} send={send} pending={pending}/>
     <div className="toolbar drawing-toolbar">
       <div className="mode-controls"><button aria-pressed={tool==="draw"} onClick={()=>setTool("draw")}><Pencil/>{t("pen")}</button><button aria-pressed={tool==="move"} onClick={()=>setTool("move")}><Hand/>{t("move")}</button><button aria-pressed={tool==="pick"} aria-label={t("pick")} title={t("pick")} onClick={()=>setTool("pick")}><Pipette/></button><button title={t("undo")} aria-label={t("undo")} disabled={!drafts.length||submitting} onClick={()=>setDrafts(value=>value.slice(0,-1))}><Undo2/><span>{t("undo")}</span></button><button title={t("clear")} aria-label={t("clear")} disabled={!drafts.length||submitting} onClick={()=>setDrafts([])}><Trash2/><span>{t("clear")}</span></button></div>
       <div className="pen-controls"><label>{t("color")}<input aria-label={t("color")} type="color" value={color} onChange={e=>setColor(e.target.value)}/></label>{["#000000","#ffffff"].map(c=><button key={c} className="swatch" style={{background:c}} aria-label={c} aria-pressed={color===c} onClick={()=>setColor(c)}/>)}<label>{t("width")}<input aria-label={t("width")} type="range" min={1} max={30} step={1} value={width*1000} onChange={e=>setWidth(Number(e.target.value)/1000)}/></label><span className="pen-preview" aria-label={t("width")+" "+Math.round(width*1000)}><i style={{background:color,width:Math.max(2,width*1000),height:Math.max(2,width*1000)}}/></span></div>
@@ -191,7 +194,7 @@ function SharePanel({imageUrl,differences}:{imageUrl:string;differences:Differen
     return()=>{active=false;if(url)URL.revokeObjectURL(url)};
   },[imageUrl,signature,language]);
   const share=async()=>{if(!blob)return;const file=new File([blob],"difference-party.png",{type:"image/png"});
-    try{if(navigator.canShare?.({files:[file]}))await navigator.share({files:[file],title:t("app"),text:t("shareBadge",{n:differences.length})});else downloadImage(blob)}catch(error){if(!(error instanceof DOMException&&error.name==="AbortError"))setError(true)}
+    try{if(navigator.canShare?.({files:[file]}))await navigator.share({files:[file],title:t("app"),text:t("shareText")});else downloadImage(blob)}catch(error){if(!(error instanceof DOMException&&error.name==="AbortError"))setError(true)}
   };
   return <section className="share-panel"><div className="share-actions"><button disabled={!blob} onClick={()=>void share()}><Share2/>{t("share")}</button><button disabled={!blob} onClick={()=>blob&&downloadImage(blob)}><Download/>{t("download")}</button></div>{error&&<p role="alert">{t("error")}</p>}{preview&&<details><summary>{t("sharePreview")}</summary><img className="share-preview" src={preview} alt={t("sharePreview")}/></details>}</section>;
 }

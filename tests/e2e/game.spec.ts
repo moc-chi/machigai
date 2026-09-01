@@ -2,7 +2,13 @@ import { test, expect, type Page } from "@playwright/test";
 import { readFile } from "node:fs/promises";
 async function enter(page:Page,name:string,code?:string){
   await page.goto("http://127.0.0.1:5173/"+(code?"?room="+code:""));
-  if(!code)await page.getByRole("button",{name:"部屋をつくる",exact:false}).click();
+  if(!code){
+    await expect(page.getByRole("heading",{name:"みんなで間違い探しを作ろう！"})).toBeVisible();
+    await expect(page.getByTestId("hero-sample").locator("figure")).toHaveCount(2);
+    const heroFigures=await page.getByTestId("hero-sample").locator("figure").all();const first=await heroFigures[0].boundingBox(),second=await heroFigures[1].boundingBox();
+    expect(second!.y).toBeGreaterThan(first!.y+first!.height-1);
+    await page.getByRole("button",{name:"部屋をつくる",exact:false}).click();
+  }
   await page.getByLabel("ニックネーム").fill(name);
   await page.locator("form").getByRole("button",{name:code?"部屋に参加":"部屋をつくる",exact:true}).click();
   await expect(page.locator(".invite-card>strong")).toBeVisible();
@@ -17,6 +23,10 @@ async function draw(page:Page,x:number,y:number){
 test("three players, settings, two differences, live languages and share image",async({browser},testInfo)=>{
   const contexts=await Promise.all([browser.newContext(),browser.newContext(),browser.newContext()]);
   const pages=await Promise.all(contexts.map(c=>c.newPage()));const [host,two,three]=pages as [Page,Page,Page];
+  await host.addInitScript(()=>{
+    Object.defineProperty(navigator,"canShare",{configurable:true,value:()=>true});
+    Object.defineProperty(navigator,"share",{configurable:true,value:async(options:ShareData)=>{(window as unknown as {sharedText?:string}).sharedText=options.text}});
+  });
   const failures:string[]=[];for(const page of pages)page.on("pageerror",e=>failures.push(e.message));
   let answerCommands=0;three.on("websocket",ws=>ws.on("framesent",event=>{if(JSON.parse(String(event.payload)).type==="answer.submit")answerCommands++;}));
   try{
@@ -31,6 +41,7 @@ test("three players, settings, two differences, live languages and share image",
       if(language!=="ja")await expect(host.locator("main")).not.toContainText("参加メンバー");
     }
     await host.getByRole("button",{name:"ゲームをはじめる"}).click();
+    await expect(host.getByRole("heading",{name:"間違いを2つ描こう"})).toBeVisible();
     await expect(host.getByTestId("confirmed-progress")).toHaveText("確定 0 / 2");
     await draw(host,.15,.25);await expect(host.getByTestId("confirmed-progress")).toHaveText("確定 1 / 2");
     await host.getByLabel("Language",{exact:true}).selectOption("de");
@@ -77,6 +88,8 @@ test("three players, settings, two differences, live languages and share image",
     host.once("dialog",d=>void d.accept());await host.getByRole("button",{name:"このフェーズを終了"}).click();
     await expect(host.getByRole("heading",{name:"ラウンド結果"})).toBeVisible();
     await expect(host.getByRole("button",{name:"画像を保存",exact:true})).toBeEnabled();
+    await host.getByRole("button",{name:"画像をSNSに共有",exact:true}).click();
+    await expect.poll(()=>host.evaluate(()=>(window as unknown as {sharedText?:string}).sharedText)).toBe("まちがいパーティで間違い探しを作りました！ #DifferenceParty");
     const download=host.waitForEvent("download");await host.getByRole("button",{name:"画像を保存",exact:true}).click();
     const file=await download;expect(file.suggestedFilename()).toBe("difference-party.png");
     const pngPath=testInfo.outputPath("shared.png");await file.saveAs(pngPath);const png=await readFile(pngPath);
@@ -100,7 +113,11 @@ test("mobile QR and toolbar fit without horizontal scrolling",async({page,browse
   await expect(page.getByText(/見える変更面積/)).not.toBeVisible();
   await page.getByRole("button",{name:"ルールを見る",exact:true}).click();
   const rules=page.getByRole("dialog",{name:"ルールを見る"});await expect(rules).toBeVisible();
-  await expect(rules).toContainText("見える変更面積");await expect(rules).toContainText("20点減点");
+  await expect(rules).toContainText("描く：");await expect(rules).toContainText("探す：");await expect(rules).toContainText("競う：");
+  await expect(rules).not.toContainText("自分で描いた間違いには回答できません");
+  await expect(rules).toContainText("間違いの大きさで得点が変わります");
+  await expect(rules.getByRole("columnheader")).toHaveText(["大きさ","見つけた人","描いた人"]);
+  await expect(rules).toContainText("誤回答は減点されます。");
   const ruleBox=await rules.boundingBox();expect(ruleBox!.width).toBeLessThanOrEqual(375);
   await page.screenshot({path:testInfo.outputPath("mobile-rules.png"),fullPage:true});
   await page.keyboard.press("Escape");await expect(rules).not.toBeVisible();
