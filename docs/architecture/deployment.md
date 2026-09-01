@@ -1,5 +1,13 @@
 # 公開・運用設計
 
+### 2026-09-01 23時台の新規一時公開（現在の公開先）
+
+- URL: https://machigai-party.scratched-puffin.workers.dev
+- 新規一時アカウント: `Scratched Puffin`。旧アカウント失効後、規約・プライバシーポリシー同意と無課金を説明し、ユーザーの「OK」を得て作成。正式アカウント接続・支払い登録はなし。
+- 保存期限: 作成から約60分（日本時間2026-09-02 00:52頃）。恒久公開ではない。
+- 対象コミット: `05eb228`。Worker Version ID: `19c538d8-ca30-42d9-8478-c6a7b9e8da77`。
+- ユーザー提供の間違い版画像を含む。公開先の画像／API health 200と3人対戦スモークを確認。秘密情報・Claim URLは記録しない。
+
 ### 2026-09-01 23時台の間違い版画像差し替え（現在の公開先）
 
 - URL: https://machigai-party.secretive-dash.workers.dev
