@@ -5,6 +5,8 @@ async function enter(page:Page,name:string,code?:string){
   if(!code){
     await expect(page.getByRole("heading",{name:"みんなで間違い探しを作ろう！"})).toBeVisible();
     await expect(page.getByTestId("hero-sample").locator("figure")).toHaveCount(2);
+    const heroFigures=await page.getByTestId("hero-sample").locator("figure").all();const first=await heroFigures[0].boundingBox(),second=await heroFigures[1].boundingBox();
+    expect(second!.y).toBeGreaterThan(first!.y+first!.height-1);
     await page.getByRole("button",{name:"部屋をつくる",exact:false}).click();
   }
   await page.getByLabel("ニックネーム").fill(name);
@@ -112,7 +114,10 @@ test("mobile QR and toolbar fit without horizontal scrolling",async({page,browse
   await page.getByRole("button",{name:"ルールを見る",exact:true}).click();
   const rules=page.getByRole("dialog",{name:"ルールを見る"});await expect(rules).toBeVisible();
   await expect(rules).toContainText("描く：");await expect(rules).toContainText("探す：");await expect(rules).toContainText("競う：");
-  await expect(rules).toContainText("見える変更面積");await expect(rules).toContainText("20点減点");
+  await expect(rules).not.toContainText("自分で描いた間違いには回答できません");
+  await expect(rules).toContainText("間違いの大きさで得点が変わります");
+  await expect(rules.getByRole("columnheader")).toHaveText(["大きさ","見つけた人","描いた人"]);
+  await expect(rules).toContainText("誤回答は減点されます。");
   const ruleBox=await rules.boundingBox();expect(ruleBox!.width).toBeLessThanOrEqual(375);
   await page.screenshot({path:testInfo.outputPath("mobile-rules.png"),fullPage:true});
   await page.keyboard.press("Escape");await expect(rules).not.toBeVisible();
