@@ -14,18 +14,18 @@ export const IMAGES = [
   { id: "people-festival", src: "/assets/people-festival.png", width: 1448, height: 1086, deck: "people" },
 ] as const;
 export const GAME_DEFAULTS = {
-  minPlayers: 2, maxPlayers: 10, stageCount: 1, differencesPerPlayer: 1,
+  minPlayers: 1, maxPlayers: 10, stageCount: 1, differencesPerPlayer: 1,
   drawingSeconds: 90, answeringSeconds: 60, pointsForFinder: 100,
   pointsForUnfoundCreator: 100, missPenalty: 20, missCooldownSeconds: 3,
-  countdownSeconds: 3, zoomMin: 1, zoomMax: 6, deckId: "animals",
+  countdownSeconds: 3, zoomMin: 1, zoomMax: 6, deckId: "random",
 } as const;
-export const LIMITS = { maxMessageBytes: 524288, maxStrokes: 100, maxPoints: 2000, markerMs: 3000, minWidth: .001, maxWidth: .03 } as const;
+export const LIMITS = { maxMessageBytes: 524288, maxStrokes: 100, maxPoints: 2000, markerMs: 3000, drawingFinalizeMinMs: 600, drawingFinalizeMs: 5000, minWidth: .001, maxWidth: .03 } as const;
 export const SettingsUpdateSchema = z.object({
   stageCount: z.number().int().min(1).max(10).optional(),
   differencesPerPlayer: z.number().int().min(1).max(5).optional(),
   drawingSeconds: z.number().int().min(30).max(300).optional(),
   answeringSeconds: z.number().int().min(30).max(300).optional(),
-  deckId: z.enum(["animals", "people"]).optional(),
+  deckId: z.enum(["random", "animals", "people"]).optional(),
   // Compatibility for the old preview: individual choices now select their deck.
   imageUrl: z.enum(["/assets/bakery.png", "/assets/harbor.png", "/assets/camping.png", "/assets/space.png", "/assets/onsen.png"]).optional(),
 }).strict().refine(value => Object.keys(value).length > 0);
@@ -33,6 +33,7 @@ export type GameSettings = { [K in keyof typeof GAME_DEFAULTS]: K extends "deckI
 export const PointSchema = z.object({ x: z.number().min(0).max(1), y: z.number().min(0).max(1), pressure: z.number().min(0).max(1).optional(), t: z.number().nonnegative() });
 export const StrokeSchema = z.object({ id: z.string().min(1).max(80), color: z.string().regex(/^#[0-9a-fA-F]{6}$/), width: z.number().min(LIMITS.minWidth).max(.08), points: z.array(PointSchema).min(1).max(LIMITS.maxPoints) });
 export const DifferenceSchema = z.object({ strokes: z.array(StrokeSchema).min(1).max(LIMITS.maxStrokes) });
+export const DrawingSubmissionSchema = z.object({ differences: z.array(DifferenceSchema).max(5) }).strict();
 export const AnswerSchema = z.object({ x: z.number().min(0).max(1), y: z.number().min(0).max(1) });
 export const NicknameSchema = z.string().trim().min(1).max(20).refine(value => !/[\u0000-\u001f\u007f]/.test(value));
 export const RoomCodeSchema = z.string().trim().toUpperCase().regex(/^[A-Z2-9]{6}$/);
@@ -44,7 +45,8 @@ export const ClientCommandSchema = z.discriminatedUnion("type", [
   envelope.extend({ type: z.literal("member.kick"), payload: z.object({ participantId: z.uuid() }) }),
   envelope.extend({ type: z.literal("settings.update"), payload: SettingsUpdateSchema }),
   envelope.extend({ type: z.literal("game.start"), payload: empty }),
-  envelope.extend({ type: z.literal("difference.confirm"), payload: DifferenceSchema }),
+  envelope.extend({ type: z.literal("drawing.ready"), payload: empty }),
+  envelope.extend({ type: z.literal("drawing.submit"), payload: DrawingSubmissionSchema }),
   envelope.extend({ type: z.literal("answer.submit"), payload: AnswerSchema }),
   envelope.extend({ type: z.literal("phase.advance"), payload: empty }),
   envelope.extend({ type: z.literal("round.continue"), payload: empty }),
@@ -55,7 +57,7 @@ export type ClientCommand = z.infer<typeof ClientCommandSchema>;
 export type Point = z.infer<typeof PointSchema>;
 export type Stroke = z.infer<typeof StrokeSchema>;
 export type DifferenceInput = z.infer<typeof DifferenceSchema>;
-export type Phase = "LOBBY" | "DRAWING" | "COUNTDOWN" | "ANSWERING" | "ANSWER_REVEAL" | "ROUND_RESULT" | "FINAL_RESULT" | "ENDED";
+export type Phase = "LOBBY" | "DRAWING" | "DRAWING_FINALIZING" | "COUNTDOWN" | "ANSWERING" | "ANSWER_REVEAL" | "ROUND_RESULT" | "FINAL_RESULT" | "ENDED";
 export type Participant = { id: string; nickname: string; joinOrder: number; connected: boolean; ready: boolean; score: number; isHost: boolean; confirmed: boolean; confirmedCount?: number; answerBlockedUntil?: string };
 export type Difference = { id: string; creatorId: string; strokes: Stroke[]; foundBy?: string; foundAt?: string; points?: {finder:number;unfound:number} };
 export type ScoreBreakdown = { participantId: string; found: number; unfound: number; penalty: number; total: number };
@@ -71,7 +73,7 @@ export type CreateRoomResponse = { roomId: string; roomCode: string; participant
 export type JoinRoomResponse = CreateRoomResponse;
 export function commandId(): string { return crypto.randomUUID(); }
 export function chooseImage(previous: string | undefined, random = Math.random(), deck = "animals"): string {
-  const series = IMAGES.filter(image => image.deck === deck);
+  const series = deck === "random" ? IMAGES : IMAGES.filter(image => image.deck === deck);
   const candidates = series.filter(image => image.src !== previous);
   const choices = candidates.length ? candidates : series;
   return choices[Math.min(choices.length - 1, Math.floor(Math.max(0, random) * choices.length))]!.src;

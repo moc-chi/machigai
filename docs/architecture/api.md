@@ -47,7 +47,8 @@ type Message<T> = {
 | `member.kick` | ホストによる退出 |
 | `settings.update` | ホストによる設定変更 |
 | `game.start` | ゲーム開始 |
-| `difference.confirm` | 描画した間違いを確定 |
+| `drawing.ready` | 描画完了を通知。描画データは含めない |
+| `drawing.submit` | `DRAWING_FINALIZING`で番号別の最新描画を1回だけ一括送信 |
 | `answer.submit` | 回答座標を送信 |
 | `round.continue` | 次ステージへ進む |
 | `game.rematch` | 同じ部屋で再試合 |
@@ -62,7 +63,7 @@ type Message<T> = {
 | `host.changed` | ホスト移譲 |
 | `settings.changed` | 設定更新 |
 | `phase.changed` | 画面遷移と終了予定時刻 |
-| `difference.accepted` / `difference.rejected` | 描画確定結果 |
+| `command.ack` / `error` | 完了通知・一括送信を含むコマンド結果 |
 | `answer.result` | 回答者本人だけの結果 |
 | `difference.found` | 全員向けの正解者・位置 |
 | `score.changed` | 得点更新 |
@@ -93,4 +94,20 @@ type Message<T> = {
 - 破壊的変更時だけ`/v2`を作る。
 - メッセージへ項目を追加する場合、古い画面が無視できる任意項目にする。
 - 画面とサーバーの共有型および入力検証スキーマを同じパッケージに置く。
+
+## 7. オリジナル画像API案（未実装）
+
+現行の「オリジナル」はホスト端末内のプレビューだけであり、以下のAPI・R2保存・ゲーム利用はまだ実装しない。
+
+| 方法 | パス | 用途 |
+| --- | --- | --- |
+| `POST` | `/api/v1/rooms/:roomId/original-image` | ホストが処理済み画像を1枚アップロード |
+| `GET` | `/api/v1/rooms/:roomId/original-image` | 部屋の参加者だけが一時画像を取得 |
+| `DELETE` | `/api/v1/rooms/:roomId/original-image` | ホストの差し替え・削除、または部屋削除時の消去 |
+
+- 1部屋1枚、アップロード上限5MBとし、ホスト権限・部屋参加資格・MIME・実データ・画像寸法をサーバーで検証する。
+- 端末側で長辺制限の縮小、WebP等への再エンコード、EXIF等のメタデータ除去を行う。端末側の処理結果も信頼せずサーバーで再検証する。
+- 保存先はCloudflare R2の一時オブジェクトを想定する。公開URLにはせず、Worker経由で部屋参加者だけに配信する。
+- 最終結果の表示中は保持し、全員退出または部屋の有効期限到来時にDurable Objectの部屋データと一緒に削除する。
+- 本機能の実装・R2バインディング作成・本番有効化は、料金と収集データが増えるため別途承認を必要とする。ローカル開発ではWranglerのR2エミュレーションで確認可能とする。
 

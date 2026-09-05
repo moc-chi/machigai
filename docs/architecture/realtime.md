@@ -1,18 +1,23 @@
 # リアルタイム対戦設計
 
-2026-08-30: COUNTDOWN、ホスト早期終了、誤回答通知、複数確定のACKは [操作・通信更新](interaction-update.md) に定義する。以下の初期案より同更新を優先する。
+2026-09-05: DRAWING_FINALIZING、描画完了通知、終了時一括送信、COUNTDOWN、回答のホスト早期終了は [操作・通信更新](interaction-update.md) に定義する。
 
 ## 1. 部屋の単位
 
-1部屋につき1つのDurable Objectを割り当てる。部屋内の参加、描画確定、回答、得点、時間切れを同じ場所で順番に処理し、競合を防ぐ。
+1部屋につき1つのDurable Objectを割り当てる。部屋内の参加、描画完了と一括登録、回答、得点、時間切れを同じ場所で順番に処理し、競合を防ぐ。
 
 ## 2. ゲーム状態
 
 ```text
 LOBBY
   └─ host starts ─> DRAWING
-       ├─ all confirmed / timeout ─> ANSWERING
+       ├─ all ready ───────────────> DRAWING_FINALIZING
+       ├─ timeout ─────────────────> DRAWING_FINALIZING
        └─ no valid differences ───> ROUND_RESULT (skipped)
+DRAWING_FINALIZING
+  └─ drafts submitted / grace end ─> COUNTDOWN
+COUNTDOWN
+  └─ three seconds ────────────────> ANSWERING
 ANSWERING
   └─ all found / timeout ─────────> ROUND_RESULT
 ROUND_RESULT
@@ -24,6 +29,8 @@ FINAL_RESULT
 ```
 
 状態遷移はサーバーだけが確定する。イベントにはゲーム番号とステージ番号を含め、古い画面から届いた操作は拒否する。
+
+描画中は`drawing.ready`で完了状態だけを同期し、全員確定または時間切れで`DRAWING_FINALIZING`へ進む。同フェーズでは「みんなの間違いを統合中」と表示し、接続中クライアントが最新の番号別描画を`drawing.submit`で1回だけ送る。全接続端末からの受信後も統合画面を最低600ms表示し、または5秒の受付期限後に3秒の`COUNTDOWN`へ進む。切断中の端末にしか残っていない描画は登録できない。
 
 ## 3. 参加とホスト
 
@@ -57,7 +64,7 @@ FINAL_RESULT
 
 ## 7. 送信量の抑制
 
-- 描画途中の共有は必須としない。最初の公開版では自分の端末にだけ描画し、確定時に線全体を送る。
+- 描画途中の共有は行わない。自分の端末に番号別描画を保持し、描画フェーズ終了時に線全体を1回だけ送る。
 - 将来途中経過を共有する場合、点を16〜33ミリ秒ごと、または一定数ごとにまとめて送る。
 - 1イベント、1本の線、1ステージの最大サイズをサーバーで制限する。
 

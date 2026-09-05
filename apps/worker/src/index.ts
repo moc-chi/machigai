@@ -1,13 +1,13 @@
 import { DurableObject } from "cloudflare:workers";
-import { AnswerSchema, ClientCommandSchema, DifferenceSchema, GAME_DEFAULTS, IMAGES, LIMITS, NicknameSchema, RoomCodeSchema, SettingsUpdateSchema, chooseImage, type AnswerFeedback, type Difference, type GameSettings, type Participant, type RoomSnapshot, type RoundReview, type ServerEvent } from "@machigai/shared";
+import { AnswerSchema, ClientCommandSchema, DrawingSubmissionSchema, GAME_DEFAULTS, IMAGES, LIMITS, NicknameSchema, RoomCodeSchema, SettingsUpdateSchema, chooseImage, type AnswerFeedback, type Difference, type GameSettings, type Participant, type RoomSnapshot, type RoundReview, type ServerEvent } from "@machigai/shared";
 import { buildHitRegion, hitTest, type HitRegion } from "@machigai/drawing";
 import { AREA_RULES, areaPoints } from "@machigai/shared";
-import { rasterize, visibleArea, visibleHit, uncoveredArea, type SourcePixels, type VisibleArea } from "@machigai/drawing";
+import { validateDifferenceSlots, visibleHit, type SourcePixels, type VisibleArea } from "@machigai/drawing";
 
 interface Env { ROOMS: DurableObjectNamespace<Room>; ASSETS: Fetcher }
-type InternalParticipant = Omit<Participant, "isHost"> & { secretHash: string; kicked: boolean; lastSeenAt: string };
+type InternalParticipant = Omit<Participant, "isHost"> & { secretHash: string; kicked: boolean; lastSeenAt: string; drawingSubmitted?: boolean };
 type InternalDifference = Difference & { hitRegion: HitRegion; visible?: VisibleArea };
-type StoredRoom = { roomId: string; roomCode: string; phase: RoomSnapshot["phase"]; revision: number; gameNo: number; stageNo: number; imageUrl: string; phaseEndsAt?: string; hostTransferAt?: string; expiresAt?: string; hostId: string; participants: InternalParticipant[]; differences: InternalDifference[]; processedCommands: string[]; settings: GameSettings; rounds: RoundReview[]; roundScores?: Record<string,{found:number;unfound:number;penalty:number;total:number}> };
+type StoredRoom = { roomId: string; roomCode: string; phase: RoomSnapshot["phase"]; revision: number; gameNo: number; stageNo: number; imageUrl: string; phaseEndsAt?: string; drawingFinalizingStartedAt?: string; hostTransferAt?: string; expiresAt?: string; hostId: string; participants: InternalParticipant[]; differences: InternalDifference[]; processedCommands: string[]; settings: GameSettings; rounds: RoundReview[]; roundScores?: Record<string,{found:number;unfound:number;penalty:number;total:number}> };
 type SocketSession = { participantId?: string };
 const json = (data: unknown, status = 200) => new Response(JSON.stringify(data), { status, headers: { "content-type": "application/json; charset=utf-8" } });
 const randomCode = () => Array.from(crypto.getRandomValues(new Uint8Array(6)), value => "ABCDEFGHJKLMNPQRSTUVWXYZ23456789"[value % 32]).join("");
@@ -25,7 +25,7 @@ export class Room extends DurableObject<Env> {
     ctx.blockConcurrencyWhile(async () => {
       this.room = await ctx.storage.get<StoredRoom>("room");
       if (this.room) {
-        this.room.settings = { ...GAME_DEFAULTS, ...this.room.settings, missPenalty: GAME_DEFAULTS.missPenalty, missCooldownSeconds: GAME_DEFAULTS.missCooldownSeconds };
+        this.room.settings = { ...GAME_DEFAULTS, ...this.room.settings, minPlayers: GAME_DEFAULTS.minPlayers, missPenalty: GAME_DEFAULTS.missPenalty, missCooldownSeconds: GAME_DEFAULTS.missCooldownSeconds };
         this.room.rounds ??= [];
         this.room.roundScores ??= {};
       }
@@ -127,34 +127,33 @@ export class Room extends DurableObject<Env> {
           if (target) { target.kicked = true; target.connected = false; for (const [ws, session] of this.sockets) if (session.participantId === target.id) { this.send(ws, "error", { code: "SESSION_REVOKED", message: "SESSION_REVOKED" }); ws.close(4001, "kicked"); } }
           break;
         }
-        case "difference.confirm": {
-          this.requirePhase("DRAWING");
-          if (member.confirmed) throw new CommandError("ALREADY_CONFIRMED");
-          const input = DifferenceSchema.parse(command.payload);
-          const source=await this.sourcePixels();
-          let composite:Uint8Array;
-          try { composite=rasterize(source,input.strokes); }
-          catch { throw new CommandError("DRAWING_TOO_COMPLEX"); }
-          let visible=visibleArea(source,composite);
-          if(visible.pixels<AREA_RULES.minimumPixels)throw new CommandError("DRAWING_NOT_VISIBLE");
-          // Reject duplicate/invisible additions over this creator's previous work.
-          const own=this.room.differences.filter(d=>d.creatorId===member.id);
-          if(own.length){
-            let rgb=source.rgb;
-            try { for(const d of own)rgb=rasterize({...source,rgb},d.strokes);
-              visible=uncoveredArea(visible,visibleArea(source,rgb),source.width,source.height);
-              if(visible.pixels<AREA_RULES.minimumPixels)throw new CommandError("DRAWING_NOT_VISIBLE");
-            } catch(error){if(error instanceof CommandError)throw error;throw new CommandError("DRAWING_TOO_COMPLEX");}
+        case "drawing.ready": {
+          this.requirePhase("DRAWING");member.confirmed=true;
+          if(this.members().every(p=>p.confirmed))this.startDrawingFinalizing();
+          break;
+        }
+        case "drawing.submit": {
+          this.requirePhase("DRAWING_FINALIZING");
+          if(member.drawingSubmitted)break;
+          const input=DrawingSubmissionSchema.parse(command.payload);
+          const slots=input.differences.slice(0,this.room.settings.differencesPerPlayer).map(d=>d.strokes);
+          const validations=validateDifferenceSlots(await this.sourcePixels(),slots);
+          for(let index=0;index<slots.length;index++){
+            const strokes=slots[index]!,visible=validations[index]?.visible;if(!validations[index]?.valid||!visible)continue;
+            this.room.differences.push({id:crypto.randomUUID(),creatorId:member.id,strokes,hitRegion:buildHitRegion({strokes}),visible,points:areaPoints(visible.ratio)});
           }
-          this.room.differences.push({ id: crypto.randomUUID(), creatorId: member.id, strokes: input.strokes, hitRegion: buildHitRegion(input), visible, points: areaPoints(visible.ratio) });
-          member.confirmed = this.count(member.id) >= this.room.settings.differencesPerPlayer;
-          if (this.members().every(p => p.confirmed)) this.startCountdown();
+          member.drawingSubmitted=true;
+          if(this.members().filter(p=>p.connected).every(p=>p.drawingSubmitted)){
+            const minimumEnd=Date.parse(this.room.drawingFinalizingStartedAt!)+LIMITS.drawingFinalizeMinMs;
+            if(Date.now()>=minimumEnd)this.startCountdown();
+            else this.room.phaseEndsAt=new Date(minimumEnd).toISOString();
+          }
           break;
         }
         case "answer.submit": feedback = this.answer(member, command.payload); break;
         case "phase.advance":
           this.requireHost(member.id);
-          if (this.room.phase === "DRAWING") this.startCountdown();
+          if (this.room.phase === "DRAWING") this.startDrawingFinalizing();
           else if (this.room.phase === "ANSWERING") this.finishRound();
           else throw new CommandError("INVALID_PHASE");
           break;
@@ -204,12 +203,19 @@ export class Room extends DurableObject<Env> {
   private startDrawing() {
     const r = this.room!; r.phase = "DRAWING"; r.imageUrl = chooseImage(r.stageNo > 1 ? r.imageUrl : undefined, Math.random(), r.settings.deckId);
     r.roundScores = {};
-    r.differences = []; this.members().forEach(p => { p.confirmed = false; delete p.answerBlockedUntil; });
+    r.differences = []; this.members().forEach(p => { p.confirmed = false; p.drawingSubmitted=false; delete p.answerBlockedUntil; });
     this.deadline(r.settings.drawingSeconds);
   }
   private startCountdown() {
-    if (!this.room!.differences.length) { this.finishRound(); return; }
+    delete this.room!.drawingFinalizingStartedAt;
+    if (!this.room!.differences.length || this.members().filter(p=>p.connected).length===1) { this.finishRound(); return; }
     this.room!.phase = "COUNTDOWN"; this.deadline(this.room!.settings.countdownSeconds);
+  }
+  private startDrawingFinalizing() {
+    this.room!.phase = "DRAWING_FINALIZING";
+    this.room!.drawingFinalizingStartedAt = new Date().toISOString();
+    this.room!.differences=[];this.members().forEach(p=>p.drawingSubmitted=false);
+    this.deadline(LIMITS.drawingFinalizeMs / 1000);
   }
   private answer(member: InternalParticipant, input: unknown): AnswerFeedback {
     this.requirePhase("ANSWERING");
@@ -255,7 +261,8 @@ export class Room extends DurableObject<Env> {
         if (next) r.hostId = next.id; delete r.hostTransferAt;
       }
       if (r.phaseEndsAt && Date.parse(r.phaseEndsAt) <= now) {
-        if (r.phase === "DRAWING") this.startCountdown();
+        if (r.phase === "DRAWING") this.startDrawingFinalizing();
+        else if (r.phase === "DRAWING_FINALIZING") this.startCountdown();
         else if (r.phase === "COUNTDOWN") { r.phase = "ANSWERING"; this.deadline(r.settings.answeringSeconds); }
         else if (r.phase === "ANSWERING") this.finishRound();
         else if (r.phase === "ANSWER_REVEAL") this.finishRound();
@@ -286,7 +293,7 @@ export class Room extends DurableObject<Env> {
     for (const [ws, session] of this.sockets) if (session.participantId && this.members().some(p => p.id === session.participantId)) this.send(ws, "state.snapshot", this.snapshot(session.participantId));
   }
   private snapshot(selfId: string): RoomSnapshot {
-    const r = this.room!; const hidden = r.phase === "DRAWING" || r.phase === "COUNTDOWN";
+    const r = this.room!; const hidden = r.phase === "DRAWING" || r.phase === "DRAWING_FINALIZING" || r.phase === "COUNTDOWN";
     return { roomId: r.roomId, roomCode: r.roomCode, phase: r.phase, revision: r.revision, gameNo: r.gameNo, stageNo: r.stageNo, stageCount: r.settings.stageCount, imageUrl: r.imageUrl, phaseEndsAt: r.phaseEndsAt, selfId, settings: r.settings,
       participants: this.members().map(p => ({ id: p.id, nickname: p.nickname, joinOrder: p.joinOrder, connected: p.connected, ready: p.ready, score: p.score, confirmed: p.confirmed, confirmedCount: this.count(p.id), answerBlockedUntil: p.answerBlockedUntil, isHost: p.id === r.hostId })),
       differences: r.differences.filter(d => !hidden || d.creatorId === selfId).map(({ hitRegion: _, visible: _visible, ...d }) => d), rounds: r.rounds };

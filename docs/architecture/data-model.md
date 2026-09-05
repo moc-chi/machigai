@@ -62,7 +62,7 @@
 
 ```ts
 type GameSettings = {
-  minPlayers: number;              // 2
+  minPlayers: number;              // 1
   maxPlayers: number;              // 10
   stageCount: number;              // 初期値2
   differencesPerPlayer: number;    // 初期値1、ホストが1〜5で設定
@@ -102,3 +102,17 @@ type GameSettings = {
 - IPアドレスをゲームデータとして保存しない。
 - 部屋削除時に参加者、描画、回答、得点をまとめて削除する。
 - 将来集計値を残す場合も個人や部屋を復元できない形にする。
+
+## 6. オリジナル画像の将来データ（未実装）
+
+オリジナル画像対応時はRoomへ一時参照を追加し、画像本体をSQLiteへ格納しない。
+
+| 項目 | 内容 |
+| --- | --- |
+| `originalImageKey` | R2上の推測困難な一時オブジェクトキー |
+| `originalImageMime` | 検証・再エンコード後のMIME |
+| `originalImageWidth` / `originalImageHeight` | 検証後の画像寸法 |
+| `originalImageBytes` | 上限確認用の保存サイズ |
+| `originalImageExpiresAt` | 部屋の削除期限と連動する削除予定時刻 |
+
+オリジナル画像は色情報に依存する可視面積・面積別得点を持たず、通常の線データと`hitRegion`だけを判定に使う。固定配点は共有設定から参照する。

@@ -16,7 +16,7 @@ describe("translations", () => {
   });
   it("uses the configured drawing count and requested Japanese share copy", () => {
     expect(translate("ja","drawingCount",{n:5})).toBe("間違いを5つ描こう");
-    expect(translate("ja","shareText")).toBe("まちがいパーティで間違い探しを作りました！ #DifferenceParty");
+    expect(translate("ja","shareText")).toBe("まちがいパーティーで間違い探しをつくった！ #DifferenceParty");
   });
   it("keeps the approved concise rule and reveal copy", () => {
     expect(translate("ja","rulesPenalty")).toBe("誤回答は減点されます。");

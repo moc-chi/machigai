@@ -1,8 +1,8 @@
 import { describe, expect, it } from "vitest";
 import { ClientCommandSchema, SettingsUpdateSchema, chooseImage, GAME_DEFAULTS, IMAGES } from "./index";
 describe("room commands and decks", () => {
-  it("starts with one random animal round", () => {
-    expect(GAME_DEFAULTS.stageCount).toBe(1); expect(GAME_DEFAULTS.deckId).toBe("animals");
+  it("starts with one round using every available series", () => {
+    expect(GAME_DEFAULTS.stageCount).toBe(1); expect(GAME_DEFAULTS.deckId).toBe("random");
   });
   it("uses the approved three-second, twenty-point miss penalty", () => {
     expect(GAME_DEFAULTS.missCooldownSeconds).toBe(3);
@@ -19,10 +19,16 @@ describe("room commands and decks", () => {
   it("offers five images in each series", () => {
     expect(SettingsUpdateSchema.parse({deckId:"people"})).toEqual({deckId:"people"});
     expect(chooseImage(undefined,0,"people")).toBe("/assets/people-market.png");
+    expect(SettingsUpdateSchema.parse({deckId:"random"})).toEqual({deckId:"random"});
+    expect(chooseImage(undefined,0,"random")).toBe(IMAGES[0]!.src);
+    expect(chooseImage(undefined,.999,"random")).toBe(IMAGES.at(-1)!.src);
     for(const deck of ["animals","people"]) expect(IMAGES.filter(image=>image.deck===deck)).toHaveLength(5);
   });
   it("rejects malformed commands rather than trusting client casts", () => {
     expect(ClientCommandSchema.safeParse({type:"phase.advance",commandId:crypto.randomUUID(),payload:{}}).success).toBe(true);
+    expect(ClientCommandSchema.safeParse({type:"drawing.ready",commandId:crypto.randomUUID(),payload:{}}).success).toBe(true);
+    expect(ClientCommandSchema.safeParse({type:"drawing.submit",commandId:crypto.randomUUID(),payload:{differences:[]}}).success).toBe(true);
+    expect(ClientCommandSchema.safeParse({type:"drawing.submit",commandId:crypto.randomUUID(),payload:{differences:Array(6).fill({strokes:[]})}}).success).toBe(false);
     expect(ClientCommandSchema.safeParse({type:"member.ready",commandId:crypto.randomUUID(),payload:{ready:"yes"}}).success).toBe(false);
   });
 });

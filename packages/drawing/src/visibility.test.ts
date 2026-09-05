@@ -1,6 +1,6 @@
 import { describe,it,expect } from "vitest";
 import { AREA_RULES,areaPoints,type Stroke } from "@machigai/shared";
-import { rasterize,visibleArea,visibleHit,uncoveredArea } from "./visibility";
+import { rasterize,visibleArea,visibleHit,uncoveredArea,validateDifferenceSlots } from "./visibility";
 const source={width:400,height:300,rgb:new Uint8Array(400*300*3).fill(255)};
 const stroke=(color="#000000",width=.03):Stroke=>({id:"test",color,width,points:[{x:.2,y:.5,t:0},{x:.8,y:.5,t:1}]});
 describe("authoritative visible-area scoring",()=>{
@@ -40,5 +40,9 @@ describe("authoritative visible-area scoring",()=>{
     const fresh=uncoveredArea(more,previous,400,300);
     expect(fresh.pixels).toBe(more.pixels-previous.pixels);
     expect(fresh.ratio).toBeLessThan(more.ratio);
+  });
+  it("keeps the first valid numbered difference and rejects later duplicates",()=>{
+    const valid=stroke("#000000",.01),tiny={...stroke("#000000",.001),points:[{x:.5,y:.5,t:0}]};
+    expect(validateDifferenceSlots(source,[[],[tiny],[valid],[{...valid,id:"duplicate"}]]).map(result=>result.reason??"valid")).toEqual(["empty","small","valid","overlap"]);
   });
 });

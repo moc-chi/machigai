@@ -6,7 +6,31 @@ export const LANGUAGES = [
 export type Language = typeof LANGUAGES[number][0];
 export const LanguageContext = createContext<Language>("ja");
 export const translations = [
-  ["rules","ルールを見る","View rules","查看规则","查看規則","규칙 보기","Regeln ansehen","Voir les règles","Ver reglas","Ver regras"],
+  ["settings","ゲーム設定","Game settings","游戏设置","遊戲設定","게임 설정","Spieleinstellungen","Paramètres du jeu","Ajustes del juego","Configurações do jogo"],
+  ["ranking","順位","Ranking","排名","排名","순위","Rangliste","Classement","Clasificación","Classificação"],
+  ["artwork","作品","Artwork","作品","作品","작품","Bilder","Créations","Dibujos","Desenhos"],
+  ["rules","遊び方","How to play","玩法","玩法","게임 방법","Spielanleitung","Comment jouer","Cómo jugar","Como jogar"],
+  ["roomCode","ルームコード","Room code","房间代码","房間代碼","방 코드","Raumcode","Code de salle","Código de sala","Código da sala"],
+  ["showQr","QRコードを表示","Show QR code","显示二维码","顯示QR碼","QR 코드 표시","QR-Code anzeigen","Afficher le QR code","Mostrar código QR","Mostrar código QR"],
+  ["originalUpload","オリジナル","Original","原创","原創","오리지널","Eigenes Bild","Originale","Original","Original"],
+  ["random","ランダム","Random","随机","隨機","랜덤","Zufällig","Aléatoire","Aleatorio","Aleatório"],
+  ["comingSoon","準備中","Coming soon","准备中","準備中","준비 중","Demnächst","Bientôt","Próximamente","Em breve"],
+  ["genreSea","海","Ocean","海洋","海洋","바다","Meer","Océan","Océano","Oceano"],
+  ["genreSpace","宇宙","Space","宇宙","宇宙","우주","Weltraum","Espace","Espacio","Espaço"],
+  ["genreFood","食べ物","Food","美食","美食","음식","Essen","Cuisine","Comida","Comida"],
+  ["genreVehicles","乗り物","Vehicles","交通工具","交通工具","탈것","Fahrzeuge","Véhicules","Vehículos","Veículos"],
+  ["genreSports","スポーツ","Sports","运动","運動","스포츠","Sport","Sports","Deportes","Esportes"],
+  ["genreFantasy","ファンタジー","Fantasy","奇幻","奇幻","판타지","Fantasy","Fantaisie","Fantasía","Fantasia"],
+  ["genreSchool","学校","School","学校","學校","학교","Schule","École","Escuela","Escola"],
+  ["genreSeasons","季節","Seasons","四季","四季","계절","Jahreszeiten","Saisons","Estaciones","Estações"],
+  ["chooseImage","画像を選択","Choose image","选择图片","選擇圖片","이미지 선택","Bild auswählen","Choisir une image","Elegir imagen","Escolher imagem"],
+  ["changeImage","画像を変更","Change image","更换图片","更換圖片","이미지 변경","Bild ändern","Changer l’image","Cambiar imagen","Trocar imagem"],
+  ["removeImage","削除","Remove","删除","刪除","삭제","Entfernen","Supprimer","Eliminar","Remover"],
+  ["uploadHint","PNG・JPEG・WebP。横長または正方形に近い画像がおすすめです。","PNG, JPEG or WebP. Landscape or near-square images work best.","支持PNG、JPEG、WebP，推荐横向或接近正方形的图片。","支援PNG、JPEG、WebP，建議橫向或接近正方形的圖片。","PNG·JPEG·WebP. 가로형 또는 정사각형에 가까운 이미지를 권장합니다.","PNG, JPEG oder WebP. Querformat oder fast quadratisch empfohlen.","PNG, JPEG ou WebP. Format paysage ou presque carré recommandé.","PNG, JPEG o WebP. Se recomienda formato horizontal o casi cuadrado.","PNG, JPEG ou WebP. Recomendamos formato horizontal ou quase quadrado."],
+  ["screenOnly","画面確認用です。まだゲームには使用されません。","Preview only; it is not used in the game yet.","仅供界面预览，暂不会用于游戏。","僅供畫面預覽，尚不會用於遊戲。","화면 확인용이며 아직 게임에는 사용되지 않습니다.","Nur Vorschau; noch nicht im Spiel verwendbar.","Aperçu uniquement ; pas encore utilisé dans le jeu.","Solo vista previa; aún no se usa en el juego.","Apenas prévia; ainda não é usada no jogo."],
+  ["hostChoosingImage","ホストが画像を選んでいます","The host is choosing an image","房主正在选择图片","房主正在選擇圖片","호스트가 이미지를 선택하고 있어요","Der Gastgeber wählt ein Bild","L’hôte choisit une image","El anfitrión está eligiendo una imagen","O anfitrião está escolhendo uma imagem"],
+  ["countValue","{n}個","{n}","{n}个","{n}個","{n}개","{n}","{n}","{n}","{n}"],
+  ["roundValue","{n}回","{n} rounds","{n}局","{n}局","{n}회","{n} Runden","{n} manches","{n} rondas","{n} rodadas"],
   ["close","閉じる","Close","关闭","關閉","닫기","Schließen","Fermer","Cerrar","Fechar"],
   ["ruleDraw","描く：全員が元の絵に、設定された数の間違いを描いて確定します。","Draw: Everyone adds and confirms the selected number of differences on the original picture.","画：每个人在原图上画出设定数量的不同并确认。","畫：每個人在原圖上畫出設定數量的不同並確認。","그리기: 모두 원본 그림에 설정된 수만큼 차이를 그리고 확정해요.","Zeichnen: Alle fügen die eingestellte Anzahl Unterschiede ins Original ein und bestätigen sie.","Dessiner : chacun ajoute à l’original le nombre de différences choisi, puis les valide.","Dibujar: cada persona añade al original la cantidad elegida de diferencias y las confirma.","Desenhar: cada pessoa adiciona à imagem original o número escolhido de diferenças e confirma."],
   ["ruleFind","探す：みんなの間違いを重ねた絵から、他の人が描いた間違いを早押しで探します。","Find: Race to spot the differences drawn by the other players in the combined picture.","找：在合并了所有改动的图片中，抢先找出其他人画的不同。","找：在合併了所有改動的圖片中，搶先找出其他人畫的不同。","찾기: 모두의 차이가 합쳐진 그림에서 다른 사람이 그린 차이를 먼저 찾아요.","Finden: Sucht im gemeinsamen Bild so schnell wie möglich die Unterschiede der anderen.","Trouver : repérez au plus vite les différences dessinées par les autres dans l’image combinée.","Buscar: encuentra antes que nadie las diferencias de los demás en la imagen combinada.","Encontrar: procure primeiro as diferenças dos outros na imagem combinada."],
@@ -400,15 +424,15 @@ export const translations = [
   ],
   [
     "reset",
-    "全体",
-    "Fit",
-    "全图",
-    "全圖",
-    "전체",
-    "Einpassen",
-    "Vue entière",
-    "Ajustar",
-    "Ajustar"
+    "全体表示",
+    "Fit all",
+    "显示全图",
+    "顯示全圖",
+    "전체 표시",
+    "Alles einpassen",
+    "Tout afficher",
+    "Mostrar todo",
+    "Mostrar tudo"
   ],
   [
     "undo",
@@ -433,18 +457,6 @@ export const translations = [
     "Effacer le brouillon",
     "Borrar borrador",
     "Limpar rascunho"
-  ],
-  [
-    "confirm",
-    "この間違いを確定",
-    "Confirm this difference",
-    "确认此处不同",
-    "確認此處不同",
-    "이 차이 확정",
-    "Unterschied bestätigen",
-    "Valider cette différence",
-    "Confirmar diferencia",
-    "Confirmar diferença"
   ],
   [
     "confirmed",
@@ -484,15 +496,39 @@ export const translations = [
   ],
   [
     "advanceConfirm",
-    "このフェーズを終了しますか？未確定の描画は送信されません。回答中なら未発見の間違いに作成者得点が入ります。",
-    "End this phase? Unconfirmed drawings will not be submitted. During answering, unfound differences award creator points.",
-    "结束此阶段？未确认的绘画不会提交。答题阶段未找到的不同将给创作者加分。",
-    "結束此階段？未確認的繪畫不會提交。答題階段未找到的不同將給創作者加分。",
-    "이 단계를 종료할까요? 미확정 그림은 제출되지 않아요. 답변 중이면 못 찾은 차이의 제작자가 점수를 받아요.",
-    "Phase beenden? Unbestätigte Zeichnungen werden nicht gesendet. Beim Suchen erhalten Ersteller Punkte für unentdeckte Unterschiede.",
-    "Terminer ? Les dessins non validés ne seront pas envoyés. En recherche, les différences non trouvées rapportent des points à leur auteur.",
-    "¿Terminar? Los dibujos sin confirmar no se enviarán. En la búsqueda, las diferencias no encontradas dan puntos al creador.",
-    "Encerrar? Desenhos não confirmados não serão enviados. Na busca, diferenças não encontradas dão pontos ao criador."
+    "回答を終了しますか？未発見の間違いには作成者得点が入ります。",
+    "End answering? Unfound differences will award creator points.",
+    "结束答题？未找到的不同将给创作者加分。",
+    "結束答題？未找到的不同將給創作者加分。",
+    "답변을 종료할까요? 못 찾은 차이의 제작자가 점수를 받아요.",
+    "Antwortphase beenden? Ersteller erhalten Punkte für unentdeckte Unterschiede.",
+    "Terminer la recherche ? Les différences non trouvées rapporteront des points à leur auteur.",
+    "¿Terminar la búsqueda? Las diferencias no encontradas darán puntos al creador.",
+    "Encerrar a busca? Diferenças não encontradas darão pontos ao criador."
+  ],
+  [
+    "finalizing",
+    "みんなの間違いを統合中…",
+    "Combining everyone's differences…",
+    "正在合并大家画出的不同…",
+    "正在合併大家畫出的不同…",
+    "모두의 다른 부분을 합치는 중…",
+    "Die Unterschiede werden zusammengeführt…",
+    "Fusion des différences en cours…",
+    "Combinando las diferencias…",
+    "Combinando as diferenças…"
+  ],
+  [
+    "finalizingHint",
+    "準備ができたら3秒後に回答が始まります",
+    "Once ready, finding starts after a 3-second countdown.",
+    "准备完成后，将倒数3秒开始寻找。",
+    "準備完成後，將倒數3秒開始尋找。",
+    "준비가 끝나면 3초 카운트다운 후 찾기가 시작돼요.",
+    "Wenn alles bereit ist, beginnt die Suche nach 3 Sekunden Countdown.",
+    "Une fois prêt, le jeu commence après un compte à rebours de 3 secondes.",
+    "Cuando esté listo, la búsqueda comenzará tras una cuenta atrás de 3 segundos.",
+    "Quando tudo estiver pronto, a busca começará após uma contagem de 3 segundos."
   ],
   [
     "countdown",
@@ -544,6 +580,9 @@ export const translations = [
     "¡{name} acertó!",
     "{name} acertou!"
   ],
+  ["correctScore","正解！+{n}点","Correct! +{n}","答对！+{n}分","答對！+{n}分","정답! +{n}점","Richtig! +{n}","Bonne réponse ! +{n}","¡Correcto! +{n}","Correto! +{n}"],
+  ["missScore","不正解 -{n}点","Wrong −{n}","答错 −{n}分","答錯 −{n}分","오답 -{n}점","Falsch −{n}","Faux −{n}","Incorrecto −{n}","Errado −{n}"],
+  ["cooldownPopup","あと {n}秒","{n}s remaining","还剩 {n}秒","還剩 {n}秒","{n}초 남음","Noch {n}s","Encore {n}s","Quedan {n}s","Faltam {n}s"],
   [
     "miss",
     "{name} は不正解",
@@ -655,7 +694,7 @@ export const translations = [
   ],
   [
     "share",
-    "画像をSNSに共有",
+    "共有",
     "Share image",
     "分享图片",
     "分享圖片",
@@ -667,7 +706,7 @@ export const translations = [
   ],
   [
     "download",
-    "画像を保存",
+    "間違い探しを保存",
     "Save image",
     "保存图片",
     "儲存圖片",
@@ -882,7 +921,20 @@ export const translations = [
   ,["sharePreview","共有画像を見る","Preview share image","预览分享图片","預覽分享圖片","공유 이미지 미리보기","Vorschaubild ansehen","Aperçu de l’image","Ver imagen para compartir","Ver imagem de compartilhamento"]
   ,["drawingCount","間違いを{n}つ描こう","Draw {n} differences","画出{n}处不同","畫出{n}處不同","차이 {n}개를 그려요","Zeichne {n} Unterschiede","Dessinez {n} différences","Dibuja {n} diferencias","Desenhe {n} diferenças"]
   ,["shareBadge","{n}個の間違い","{n} differences","{n}处不同","{n}處不同","차이 {n}개","{n} Unterschiede","{n} différences","{n} diferencias","{n} diferenças"]
-  ,["shareText","まちがいパーティで間違い探しを作りました！ #DifferenceParty","We made a spot-the-difference puzzle in Difference Party! #DifferenceParty","我们在找不同派对制作了一幅找不同！ #DifferenceParty","我們在找不同派對製作了一幅找不同！ #DifferenceParty","틀린그림 파티에서 틀린그림찾기를 만들었어요! #DifferenceParty","Wir haben bei Difference Party ein Fehlersuchbild erstellt! #DifferenceParty","Nous avons créé un jeu des différences avec Difference Party ! #DifferenceParty","¡Creamos un juego de diferencias en Difference Party! #DifferenceParty","Criamos um jogo dos sete erros no Difference Party! #DifferenceParty"]
+  ,["shareText","まちがいパーティーで間違い探しをつくった！ #DifferenceParty","We made a spot-the-difference puzzle in Difference Party! #DifferenceParty","我们在找不同派对制作了一幅找不同！ #DifferenceParty","我們在找不同派對製作了一幅找不同！ #DifferenceParty","틀린그림 파티에서 틀린그림찾기를 만들었어요! #DifferenceParty","Wir haben bei Difference Party ein Fehlersuchbild erstellt! #DifferenceParty","Nous avons créé un jeu des différences avec Difference Party ! #DifferenceParty","¡Creamos un juego de diferencias en Difference Party! #DifferenceParty","Criamos um jogo dos sete erros no Difference Party! #DifferenceParty"]
+  ,["copyImage","画像をコピー","Copy image","复制图片","複製圖片","이미지 복사","Bild kopieren","Copier l’image","Copiar imagen","Copiar imagem"]
+  ,["saveImage","画像を保存","Save image","保存图片","儲存圖片","이미지 저장","Bild speichern","Enregistrer l’image","Guardar imagen","Salvar imagem"]
+  ,["imageCopied","画像をコピーしました","Image copied","图片已复制","圖片已複製","이미지를 복사했어요","Bild kopiert","Image copiée","Imagen copiada","Imagem copiada"]
+  ,["xPost","Xへポスト","Post to X","发布到X","發佈到X","X에 게시","Auf X posten","Publier sur X","Publicar en X","Publicar no X"]
+  ,["leaveConfirmTitle","退出しますか？","Leave the room?","要退出吗？","要退出嗎？","나가시겠어요?","Raum verlassen?","Quitter la salle ?","¿Salir de la sala?","Sair da sala?"]
+  ,["leaveConfirmBody","このルームから退出します。よろしいですか？","You will leave this room. Are you sure?","你将退出这个房间。确定吗？","你將退出這個房間。確定嗎？","이 방에서 나갑니다. 계속할까요?","Du verlässt diesen Raum. Fortfahren?","Vous allez quitter cette salle. Continuer ?","Vas a salir de esta sala. ¿Continuar?","Você sairá desta sala. Continuar?"]
+  ,["soloConfirmTitle","1人でゲームを始めますか？","Start a solo game?","要开始单人游戏吗？","要開始單人遊戲嗎？","혼자 게임을 시작할까요?","Solospiel starten?","Commencer une partie solo ?","¿Empezar una partida individual?","Iniciar um jogo solo?"]
+  ,["soloConfirmBody","1人プレイでは、間違いを描いたあと回答をスキップして結果を表示します。","In solo play, answering is skipped after drawing and the result is shown.","单人游戏中，画完不同之处后会跳过答题并显示结果。","單人遊戲中，畫完不同之處後會跳過答題並顯示結果。","혼자 플레이하면 그림을 그린 뒤 답변을 건너뛰고 결과를 표시해요.","Im Solospiel wird die Antwortphase nach dem Zeichnen übersprungen.","En solo, la phase de réponse est ignorée après le dessin.","En solitario, se omite la respuesta después de dibujar.","No modo solo, a resposta é ignorada após desenhar."]
+  ,["pickHint","絵をタップして色を取得","Tap the image to pick a color","点击图片取色","點擊圖片取色","그림을 눌러 색을 추출하세요","Tippe auf das Bild, um eine Farbe zu wählen","Touchez l’image pour choisir une couleur","Toca la imagen para elegir un color","Toque na imagem para escolher uma cor"]
+  ,["confirmShort","確定","Done","完成","完成","확정","Fertig","Terminé","Listo","Concluir"]
+  ,["notReady","未確定","Not done","未完成","未完成","미확정","Nicht fertig","Non terminé","Sin terminar","Não concluído"]
+  ,["differenceSlots","間違いの切り替え","Difference selector","不同之处切换","不同之處切換","차이 전환","Unterschied auswählen","Sélecteur de différence","Selector de diferencias","Seletor de diferenças"]
+  ,["differenceNumber","間違い {n}","Difference {n}","不同之处 {n}","不同之處 {n}","차이 {n}","Unterschied {n}","Différence {n}","Diferencia {n}","Diferença {n}"]
 ] as const;
 export type TextKey = typeof translations[number][0];
 export function translate(language: Language, key: TextKey, values: Record<string,string|number> = {}): string {

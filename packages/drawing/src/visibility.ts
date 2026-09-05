@@ -2,6 +2,7 @@ import { AREA_RULES, type Stroke } from "@machigai/shared";
 
 export type SourcePixels = { width: number; height: number; rgb: Uint8Array };
 export type VisibleArea = { pixels: number; ratio: number; runs: number[][] };
+export type SlotValidation = { valid: boolean; reason?: "empty"|"small"|"overlap"|"complex"; visible?: VisibleArea };
 
 // Software rasterizer: same quadratic path, round caps and short-edge pen width
 // as drawSmoothStroke. Sample pixel centers; no browser/client measurements trusted.
@@ -65,4 +66,17 @@ export function uncoveredArea(area:VisibleArea,existing:VisibleArea,width:number
     else if(from>=0){runs.push([y!,from,x-1]);from=-1;}
   }}
   return {pixels,ratio:pixels/(width*height),runs};
+}
+export function validateDifferenceSlots(source:SourcePixels,slots:Stroke[][]):SlotValidation[] {
+  const accepted:Stroke[][]=[];let existingRgb=source.rgb;let existingArea:VisibleArea|undefined;
+  return slots.map(strokes=>{
+    if(!strokes.length)return {valid:false,reason:"empty"};
+    try{
+      const composite=rasterize(source,strokes);let visible=visibleArea(source,composite);
+      if(visible.pixels<AREA_RULES.minimumPixels)return {valid:false,reason:"small"};
+      if(existingArea){visible=uncoveredArea(visible,existingArea,source.width,source.height);if(visible.pixels<AREA_RULES.minimumPixels)return {valid:false,reason:"overlap"};}
+      accepted.push(strokes);existingRgb=rasterize({...source,rgb:existingRgb},strokes);existingArea=visibleArea(source,existingRgb);
+      return {valid:true,visible};
+    }catch{return {valid:false,reason:"complex"};}
+  });
 }

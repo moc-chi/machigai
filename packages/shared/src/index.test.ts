@@ -3,7 +3,7 @@ import { GAME_DEFAULTS, SettingsUpdateSchema } from "./index";
 
 describe("game settings", () => {
   it("supports two-player rooms and a larger zoom range", () => {
-    expect(GAME_DEFAULTS.minPlayers).toBe(2);
+    expect(GAME_DEFAULTS.minPlayers).toBe(1);
     expect(GAME_DEFAULTS.zoomMax).toBe(6);
   });
 

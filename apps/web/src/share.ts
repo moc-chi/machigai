@@ -2,8 +2,14 @@ import { drawSmoothStroke } from "@machigai/drawing";
 import type { Difference } from "@machigai/shared";
 
 export const SHARE_SIZE = { width:1080, height:1920 } as const;
+async function loadImage(imageUrl:string){const image=new Image();image.src=imageUrl;await image.decode();return image}
+export async function makePuzzleImage(imageUrl:string,differences:Difference[]):Promise<Blob>{
+  const image=await loadImage(imageUrl);const canvas=document.createElement("canvas");canvas.width=image.naturalWidth;canvas.height=image.naturalHeight;
+  const ctx=canvas.getContext("2d")!;ctx.drawImage(image,0,0);for(const difference of differences)for(const stroke of difference.strokes)drawSmoothStroke(ctx,stroke,canvas.width,canvas.height);
+  return new Promise((resolve,reject)=>canvas.toBlob(blob=>blob?resolve(blob):reject(new Error("IMAGE_EXPORT_FAILED")),"image/png"));
+}
 export async function makeShareImage(imageUrl: string, differences: Difference[], labels: { title: string; count: string; original: string; changed: string }): Promise<Blob> {
-  const image = new Image(); image.src = imageUrl; await image.decode();
+  const image = await loadImage(imageUrl);
   await document.fonts.ready;
   const canvas=document.createElement("canvas");canvas.width=SHARE_SIZE.width;canvas.height=SHARE_SIZE.height;
   const ctx=canvas.getContext("2d")!;
@@ -27,6 +33,7 @@ export async function makeShareImage(imageUrl: string, differences: Difference[]
   ctx.fillStyle="#ffc94b";ctx.textAlign="center";ctx.font='800 32px "M PLUS Rounded 1c", sans-serif';ctx.fillText("#DifferenceParty",540,1880,960);
   return new Promise((resolve,reject)=>canvas.toBlob(blob=>blob?resolve(blob):reject(new Error("IMAGE_EXPORT_FAILED")),"image/png"));
 }
-export function downloadImage(blob: Blob) {
-  const url=URL.createObjectURL(blob);const a=document.createElement("a");a.href=url;a.download="difference-party.png";a.click();setTimeout(()=>URL.revokeObjectURL(url),1000);
+export function downloadImage(blob: Blob,filename="difference-party.png") {
+  const url=URL.createObjectURL(blob);const a=document.createElement("a");a.href=url;a.download=filename;a.click();setTimeout(()=>URL.revokeObjectURL(url),1000);
 }
+export async function copyImage(blob:Blob){if(!navigator.clipboard?.write||typeof ClipboardItem==="undefined")throw new Error("IMAGE_COPY_UNSUPPORTED");await navigator.clipboard.write([new ClipboardItem({"image/png":blob})])}
