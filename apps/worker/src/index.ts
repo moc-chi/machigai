@@ -1,5 +1,5 @@
 import { DurableObject } from "cloudflare:workers";
-import { AnswerSchema, ClientCommandSchema, DrawingSubmissionSchema, GAME_DEFAULTS, IMAGES, LIMITS, NicknameSchema, RoomCodeSchema, SettingsUpdateSchema, chooseImage, type AnswerFeedback, type Difference, type GameSettings, type Participant, type RoomSnapshot, type RoundReview, type ServerEvent } from "@machigai/shared";
+import { AnswerSchema, ClientCommandSchema, DrawingSubmissionSchema, GAME_DEFAULTS, IMAGES, LIMITS, NicknameSchema, RoomCodeSchema, SettingsUpdateSchema, chooseImage, type AnswerFeedback, type Difference, type GameSettings, type Participant, type RoomSnapshot, type ServerEvent } from "@machigai/shared";
 import { buildHitRegion, hitTest, type HitRegion } from "@machigai/drawing";
 import { AREA_RULES, areaPoints } from "@machigai/shared";
 import { validateDifferenceSlots, visibleHit, type SourcePixels, type VisibleArea } from "@machigai/drawing";
@@ -7,7 +7,7 @@ import { validateDifferenceSlots, visibleHit, type SourcePixels, type VisibleAre
 interface Env { ROOMS: DurableObjectNamespace<Room>; ASSETS: Fetcher }
 type InternalParticipant = Omit<Participant, "isHost"> & { secretHash: string; kicked: boolean; lastSeenAt: string; drawingSubmitted?: boolean };
 type InternalDifference = Difference & { hitRegion: HitRegion; visible?: VisibleArea };
-type StoredRoom = { roomId: string; roomCode: string; phase: RoomSnapshot["phase"]; revision: number; gameNo: number; stageNo: number; imageUrl: string; phaseEndsAt?: string; drawingFinalizingStartedAt?: string; hostTransferAt?: string; expiresAt?: string; hostId: string; participants: InternalParticipant[]; differences: InternalDifference[]; processedCommands: string[]; settings: GameSettings; rounds: RoundReview[]; roundScores?: Record<string,{found:number;unfound:number;penalty:number;total:number}> };
+type StoredRoom = { roomId: string; roomCode: string; phase: RoomSnapshot["phase"]; revision: number; gameNo: number; imageUrl: string; phaseEndsAt?: string; drawingFinalizingStartedAt?: string; hostTransferAt?: string; expiresAt?: string; hostId: string; participants: InternalParticipant[]; differences: InternalDifference[]; processedCommands: string[]; settings: GameSettings; gameScores?: Record<string,{found:number;unfound:number;penalty:number;total:number}> };
 type SocketSession = { participantId?: string };
 const json = (data: unknown, status = 200) => new Response(JSON.stringify(data), { status, headers: { "content-type": "application/json; charset=utf-8" } });
 const randomCode = () => Array.from(crypto.getRandomValues(new Uint8Array(6)), value => "ABCDEFGHJKLMNPQRSTUVWXYZ23456789"[value % 32]).join("");
@@ -25,9 +25,8 @@ export class Room extends DurableObject<Env> {
     ctx.blockConcurrencyWhile(async () => {
       this.room = await ctx.storage.get<StoredRoom>("room");
       if (this.room) {
-        this.room.settings = { ...GAME_DEFAULTS, ...this.room.settings, minPlayers: GAME_DEFAULTS.minPlayers, missPenalty: GAME_DEFAULTS.missPenalty, missCooldownSeconds: GAME_DEFAULTS.missCooldownSeconds };
-        this.room.rounds ??= [];
-        this.room.roundScores ??= {};
+        this.room.settings = { ...GAME_DEFAULTS, ...this.room.settings, imageIds: Array.isArray(this.room.settings.imageIds) ? this.room.settings.imageIds : GAME_DEFAULTS.imageIds, minPlayers: GAME_DEFAULTS.minPlayers, missPenalty: GAME_DEFAULTS.missPenalty, missCooldownSeconds: GAME_DEFAULTS.missCooldownSeconds };
+        this.room.gameScores ??= {};
       }
     });
   }
@@ -66,7 +65,7 @@ export class Room extends DurableObject<Env> {
     if (this.room) return json({ code: "ROOM_EXISTS" }, 409);
     const body = await request.json<{ nickname: string; roomCode: string }>();
     const { participant, reconnectSecret } = await this.makeParticipant(NicknameSchema.parse(body.nickname), 1);
-    this.room = { roomId: crypto.randomUUID(), roomCode: RoomCodeSchema.parse(body.roomCode), phase: "LOBBY", revision: 1, gameNo: 1, stageNo: 0, imageUrl: IMAGES[0].src, hostId: participant.id, participants: [participant], differences: [], rounds: [], processedCommands: [], settings: { ...GAME_DEFAULTS }, expiresAt: new Date(Date.now() + 30 * 60000).toISOString() };
+    this.room = { roomId: crypto.randomUUID(), roomCode: RoomCodeSchema.parse(body.roomCode), phase: "LOBBY", revision: 1, gameNo: 1, imageUrl: IMAGES[0].src, hostId: participant.id, participants: [participant], differences: [], processedCommands: [], settings: { ...GAME_DEFAULTS }, expiresAt: new Date(Date.now() + 30 * 60000).toISOString() };
     await this.save(); return this.response(participant.id, reconnectSecret, 201);
   }
   private async join(request: Request) {
@@ -107,19 +106,19 @@ export class Room extends DurableObject<Env> {
         this.send(socket, "state.snapshot", this.snapshot(member.id));
         this.send(socket, "command.ack", { commandId: id }); return;
       }
-      if ((command.gameNo !== undefined && command.gameNo !== this.room.gameNo) || (command.stageNo !== undefined && command.stageNo !== this.room.stageNo)) throw new CommandError("STALE_COMMAND");
+      if (command.gameNo !== undefined && command.gameNo !== this.room.gameNo) throw new CommandError("STALE_COMMAND");
       let feedback: AnswerFeedback | undefined;
       switch (command.type) {
         case "member.ready": this.requirePhase("LOBBY"); member.ready = command.payload.ready; break;
         case "settings.update": {
           this.requireHost(member.id); this.requirePhase("LOBBY");
-          const { imageUrl: _legacy, ...settings } = SettingsUpdateSchema.parse(command.payload);
-          this.room.settings = { ...this.room.settings, ...settings }; break;
+          this.room.settings = { ...this.room.settings, ...SettingsUpdateSchema.parse(command.payload) }; break;
         }
         case "game.start":
           this.requireHost(member.id); this.requirePhase("LOBBY");
           if (this.members().filter(p => p.connected).length < this.room.settings.minPlayers) throw new CommandError("NOT_ENOUGH_PLAYERS");
-          this.room.rounds = []; this.room.stageNo = 1; this.startDrawing(); break;
+          if (!this.room.settings.imageIds.length) throw new CommandError("INVALID_PAYLOAD");
+          this.startDrawing(); break;
         case "member.kick": {
           this.requireHost(member.id);
           if (command.payload.participantId === member.id) throw new CommandError("INVALID_PAYLOAD");
@@ -154,18 +153,12 @@ export class Room extends DurableObject<Env> {
         case "phase.advance":
           this.requireHost(member.id);
           if (this.room.phase === "DRAWING") this.startDrawingFinalizing();
-          else if (this.room.phase === "ANSWERING") this.finishRound();
+          else if (this.room.phase === "ANSWERING") this.finishGame();
           else throw new CommandError("INVALID_PHASE");
-          break;
-        case "round.continue":
-          this.requireHost(member.id); this.requirePhase("ROUND_RESULT");
-          if (this.room.stageNo >= this.room.settings.stageCount) {
-            this.room.phase = "FINAL_RESULT"; this.room.expiresAt = new Date(Date.now() + 7200000).toISOString();
-          } else { this.room.stageNo++; this.startDrawing(); }
           break;
         case "game.rematch":
           this.requireHost(member.id); this.requirePhase("FINAL_RESULT");
-          this.room.gameNo++; this.room.stageNo = 0; this.room.phase = "LOBBY"; this.room.differences = []; this.room.rounds = [];
+          this.room.gameNo++; this.room.phase = "LOBBY"; this.room.differences = []; this.room.gameScores = {};
           delete this.room.expiresAt; delete this.room.phaseEndsAt;
           this.members().forEach(p => { p.score = 0; p.confirmed = false; delete p.answerBlockedUntil; }); break;
         case "game.terminate":
@@ -201,14 +194,14 @@ export class Room extends DurableObject<Env> {
     return d.visible?visibleHit(x,y,d.visible,AREA_RULES.sampleWidth,Math.round(AREA_RULES.sampleWidth*image.height/image.width)):hitTest({x,y,t:0},d.hitRegion);
   }
   private startDrawing() {
-    const r = this.room!; r.phase = "DRAWING"; r.imageUrl = chooseImage(r.stageNo > 1 ? r.imageUrl : undefined, Math.random(), r.settings.deckId);
-    r.roundScores = {};
+    const r = this.room!; r.phase = "DRAWING"; r.imageUrl = chooseImage(r.settings.imageIds, Math.random());
+    r.gameScores = {};
     r.differences = []; this.members().forEach(p => { p.confirmed = false; p.drawingSubmitted=false; delete p.answerBlockedUntil; });
     this.deadline(r.settings.drawingSeconds);
   }
   private startCountdown() {
     delete this.room!.drawingFinalizingStartedAt;
-    if (!this.room!.differences.length || this.members().filter(p=>p.connected).length===1) { this.finishRound(); return; }
+    if (!this.room!.differences.length || this.members().filter(p=>p.connected).length===1) { this.finishGame(); return; }
     this.room!.phase = "COUNTDOWN"; this.deadline(this.room!.settings.countdownSeconds);
   }
   private startDrawingFinalizing() {
@@ -238,15 +231,18 @@ export class Room extends DurableObject<Env> {
     if (this.room!.differences.every(d => d.foundBy)) { this.room!.phase = "ANSWER_REVEAL"; this.deadline(LIMITS.markerMs / 1000); }
     return { participantId: member.id, result: "CORRECT", differenceId: found.id, at, scoreDelta:points };
   }
-  private finishRound() {
+  private finishGame() {
     const r = this.room!;
     for (const d of r.differences.filter(d => !d.foundBy)) { const creator = r.participants.find(p => p.id === d.creatorId); if (creator) { const points=d.points?.unfound??r.settings.pointsForUnfoundCreator;creator.score += points; this.recordScore(creator.id,"unfound",points); } }
-    r.phase = "ROUND_RESULT"; delete r.phaseEndsAt;
-    r.rounds = r.rounds.filter(round => round.stageNo !== r.stageNo);
-    r.rounds.push({ stageNo: r.stageNo, imageUrl: r.imageUrl, differences: r.differences.map(({ hitRegion: _, visible: _visible, ...d }) => d), scores: this.members().map(p=>({participantId:p.id,...(r.roundScores?.[p.id]??{found:0,unfound:0,penalty:0,total:0})})) });
+    r.phase = "FINAL_RESULT"; delete r.phaseEndsAt;
+    r.expiresAt = new Date(Date.now() + 7200000).toISOString();
   }
   private recordScore(id: string, kind: "found"|"unfound"|"penalty", amount: number) {
-    const scores=this.room!.roundScores??={}; const entry=scores[id]??={found:0,unfound:0,penalty:0,total:0}; entry[kind]+=amount;entry.total+=amount;
+    const scores=this.room!.gameScores??={}; const entry=scores[id]??={found:0,unfound:0,penalty:0,total:0}; entry[kind]+=amount;entry.total+=amount;
+  }
+  private scoreBreakdown() {
+    const scores = this.room!.gameScores ?? {};
+    return this.members().map(participant => ({ participantId: participant.id, ...(scores[participant.id] ?? { found: 0, unfound: 0, penalty: 0, total: 0 }) }));
   }
   private deadline(seconds: number) { this.room!.phaseEndsAt = new Date(Date.now() + seconds * 1000).toISOString(); }
   async alarm() {
@@ -264,8 +260,8 @@ export class Room extends DurableObject<Env> {
         if (r.phase === "DRAWING") this.startDrawingFinalizing();
         else if (r.phase === "DRAWING_FINALIZING") this.startCountdown();
         else if (r.phase === "COUNTDOWN") { r.phase = "ANSWERING"; this.deadline(r.settings.answeringSeconds); }
-        else if (r.phase === "ANSWERING") this.finishRound();
-        else if (r.phase === "ANSWER_REVEAL") this.finishRound();
+        else if (r.phase === "ANSWERING") this.finishGame();
+        else if (r.phase === "ANSWER_REVEAL") this.finishGame();
       }
       await this.changed();
     });
@@ -294,9 +290,9 @@ export class Room extends DurableObject<Env> {
   }
   private snapshot(selfId: string): RoomSnapshot {
     const r = this.room!; const hidden = r.phase === "DRAWING" || r.phase === "DRAWING_FINALIZING" || r.phase === "COUNTDOWN";
-    return { roomId: r.roomId, roomCode: r.roomCode, phase: r.phase, revision: r.revision, gameNo: r.gameNo, stageNo: r.stageNo, stageCount: r.settings.stageCount, imageUrl: r.imageUrl, phaseEndsAt: r.phaseEndsAt, selfId, settings: r.settings,
+    return { roomId: r.roomId, roomCode: r.roomCode, phase: r.phase, revision: r.revision, gameNo: r.gameNo, imageUrl: r.imageUrl, phaseEndsAt: r.phaseEndsAt, selfId, settings: r.settings,
       participants: this.members().map(p => ({ id: p.id, nickname: p.nickname, joinOrder: p.joinOrder, connected: p.connected, ready: p.ready, score: p.score, confirmed: p.confirmed, confirmedCount: this.count(p.id), answerBlockedUntil: p.answerBlockedUntil, isHost: p.id === r.hostId })),
-      differences: r.differences.filter(d => !hidden || d.creatorId === selfId).map(({ hitRegion: _, visible: _visible, ...d }) => d), rounds: r.rounds };
+      differences: r.differences.filter(d => !hidden || d.creatorId === selfId).map(({ hitRegion: _, visible: _visible, ...d }) => d), scores: r.phase === "FINAL_RESULT" ? this.scoreBreakdown() : undefined };
   }
   private send(socket: WebSocket, type: ServerEvent["type"], payload: unknown) {
     if (socket.readyState === WebSocket.OPEN) socket.send(JSON.stringify({ type, revision: this.room?.revision ?? 0, payload }));

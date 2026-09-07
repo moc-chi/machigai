@@ -8,10 +8,10 @@ describe("game settings", () => {
   });
 
   it("accepts host settings within the supported ranges", () => {
-    expect(SettingsUpdateSchema.parse({ differencesPerPlayer: 5, drawingSeconds: 300, answeringSeconds: 30, imageUrl: "/assets/space.png" })).toMatchObject({ differencesPerPlayer: 5 });
+    expect(SettingsUpdateSchema.parse({ differencesPerPlayer: 5, drawingSeconds: 300, answeringSeconds: 30, imageIds: ["space"] })).toMatchObject({ differencesPerPlayer: 5 });
   });
 
   it("rejects more than five differences", () => {
-    expect(() => SettingsUpdateSchema.parse({ differencesPerPlayer: 6, drawingSeconds: 90, answeringSeconds: 60, imageUrl: "/assets/bakery.png" })).toThrow();
+    expect(() => SettingsUpdateSchema.parse({ differencesPerPlayer: 6, drawingSeconds: 90, answeringSeconds: 60, imageIds: ["bakery"] })).toThrow();
   });
 });

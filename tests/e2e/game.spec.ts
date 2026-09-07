@@ -167,19 +167,26 @@ test("mobile QR and toolbar fit without horizontal scrolling",async({page,browse
   const qr=await page.locator(".real-qr").boundingBox();expect(qr!.x+qr!.width).toBeLessThanOrEqual(320);
   await page.getByRole("button",{name:"閉じる",exact:true}).click();
   await page.getByRole("button",{name:"ゲーム設定",exact:true}).click();
-  await expect(page.locator(".lobby-settings .series-options img")).toHaveCount(2);
-  await expect(page.locator(".dummy-genre")).toHaveCount(8);
-  expect(await page.locator(".series-scroll").evaluate(node=>({overflow:getComputedStyle(node).overflowY,scroll:node.scrollHeight,client:node.clientHeight}))).toMatchObject({overflow:"auto"});
-  expect(await page.locator(".series-scroll").evaluate(node=>node.scrollHeight>node.clientHeight)).toBe(true);
-  await expect.poll(()=>page.locator(".lobby-settings .series-options img").evaluateAll(images=>images.every(image=>(image as HTMLImageElement).complete&&(image as HTMLImageElement).naturalWidth>0))).toBe(true);
+  await expect(page.locator(".lobby-settings .image-options img")).toHaveCount(32);
+  expect(await page.locator(".image-options .difficulty").evaluateAll(items=>items.map(item=>item.textContent))).toEqual([
+    ...Array(3).fill("やさしい"),...Array(18).fill("ふつう"),...Array(11).fill("むずかしい")
+  ]);
+  expect(await page.locator(".image-scroll").evaluate(node=>({overflow:getComputedStyle(node).overflowY,scroll:node.scrollHeight,client:node.clientHeight}))).toMatchObject({overflow:"auto"});
+  expect(await page.locator(".image-scroll").evaluate(node=>node.scrollHeight>node.clientHeight)).toBe(true);
+  await expect.poll(()=>page.locator(".lobby-settings .image-options img").evaluateAll(images=>images.every(image=>(image as HTMLImageElement).complete&&(image as HTMLImageElement).naturalWidth>0))).toBe(true);
+  await page.getByRole("button",{name:"すべて選択",exact:true}).click();
+  await expect(page.getByRole("button",{name:"すべて解除",exact:true})).toBeVisible();
+  await page.getByRole("button",{name:"すべて解除",exact:true}).click();
+  await expect(page.getByRole("button",{name:"すべて選択",exact:true})).toBeVisible();
+  await expect(page.locator(".image-options button[aria-pressed='true']")).toHaveCount(0);
   expect(await page.evaluate(()=>document.documentElement.scrollWidth)).toBeLessThanOrEqual(320);
-  const chooserPromise=page.waitForEvent("filechooser");await page.getByRole("button",{name:"オリジナル",exact:false}).click();const chooser=await chooserPromise;
+  const chooserPromise=page.waitForEvent("filechooser");await page.getByRole("button",{name:"オリジナル",exact:true}).click();const chooser=await chooserPromise;
   await chooser.setFiles("C:/machigai/apps/web/public/assets/bakery.png");
-  await expect(page.getByRole("button",{name:"オリジナル",exact:false})).toHaveAttribute("aria-pressed","true");
-  await expect(page.getByRole("button",{name:"オリジナル",exact:false}).locator("img")).toHaveAttribute("src",/^blob:/);
+  await expect(page.locator(".original-choice")).toHaveAttribute("aria-pressed","true");
+  await expect(page.locator(".original-choice img")).toHaveAttribute("src",/^blob:/);
   await expect(page.getByText("画面確認用です。まだゲームには使用されません。",{exact:true})).toHaveCount(0);
-  await page.getByRole("button",{name:"まちの人々",exact:false}).click();
-  await expect(page.getByRole("button",{name:"まちの人々",exact:false})).toHaveAttribute("aria-pressed","true");
+  await page.getByRole("button",{name:"おもちゃの部屋",exact:false}).click();
+  await expect(page.getByRole("button",{name:"おもちゃの部屋",exact:false})).toHaveAttribute("aria-pressed","true");
   const guest=await browser.newPage();
   try{
     await enter(guest,"Guest",(await page.locator(".invite-copy strong").textContent())!);

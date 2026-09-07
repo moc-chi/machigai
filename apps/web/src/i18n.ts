@@ -75,12 +75,12 @@ export const translations = [
   ],
   [
     "homeLead",
-    "友だちと描いて競う間違い探し。登録なしで2〜10人で遊べます。",
-    "Draw differences with friends, then race to find them. 2–10 players, no account needed.",
-    "和朋友一起画出不同，再比谁找得快。2–10人，无需注册。",
-    "和朋友一起畫出不同，再比誰找得快。2–10人，無需註冊。",
+    "友だちと描いて競う間違い探し。登録なしで1〜10人で遊べます。",
+    "Draw differences with friends, then race to find them. 1–10 players, no account needed.",
+    "和朋友一起画出不同，再比谁找得快。1–10人，无需注册。",
+    "和朋友一起畫出不同，再比誰找得快。1–10人，無需註冊。",
     "친구와 다른 부분을 그리고 찾아요. 가입 없이 2~10명이 즐겨요.",
-    "Mit Freunden Unterschiede zeichnen und finden. Für 2–10 Personen, ohne Anmeldung.",
+    "Mit Freunden Unterschiede zeichnen und finden. Für 1–10 Personen, ohne Anmeldung.",
     "Dessinez et trouvez les différences entre amis. 2 à 10 joueurs, sans inscription.",
     "Dibuja y encuentra diferencias con amigos. De 2 a 10 jugadores, sin registro.",
     "Desenhe e encontre diferenças com amigos. De 2 a 10 pessoas, sem cadastro."
@@ -935,6 +935,12 @@ export const translations = [
   ,["notReady","未確定","Not done","未完成","未完成","미확정","Nicht fertig","Non terminé","Sin terminar","Não concluído"]
   ,["differenceSlots","間違いの切り替え","Difference selector","不同之处切换","不同之處切換","차이 전환","Unterschied auswählen","Sélecteur de différence","Selector de diferencias","Seletor de diferenças"]
   ,["differenceNumber","間違い {n}","Difference {n}","不同之处 {n}","不同之處 {n}","차이 {n}","Unterschied {n}","Différence {n}","Diferencia {n}","Diferença {n}"]
+  ,["difficultyEasy","やさしい","Easy","简单","簡單","쉬움","Leicht","Facile","Fácil","Fácil"]
+  ,["difficultyNormal","ふつう","Normal","普通","普通","보통","Normal","Normal","Normal","Normal"]
+  ,["difficultyHard","むずかしい","Hard","困难","困難","어려움","Schwer","Difficile","Difícil","Difícil"]
+  ,["difficulty","難易度","Difficulty","难度","難度","난이도","Schwierigkeit","Difficulté","Dificultad","Dificuldade"]
+  ,["allRandom","すべて選択","Select all shown","选择全部显示","選擇全部顯示","표시된 항목 모두 선택","Alle sichtbaren wählen","Tout sélectionner","Seleccionar todo","Selecionar tudo"]
+  ,["allDeselect","すべて解除","Deselect all shown","取消选择全部显示","取消選擇全部顯示","표시된 항목 모두 해제","Alle sichtbaren abwählen","Tout désélectionner","Deseleccionar todo","Desmarcar tudo"]
 ] as const;
 export type TextKey = typeof translations[number][0];
 export function translate(language: Language, key: TextKey, values: Record<string,string|number> = {}): string {
