@@ -1,3 +1,4 @@
+export { ORIGINAL_IMAGE_LIMITS, validOriginalDimensions, encodeOriginalPixels, decodeOriginalPixels, type OriginalImage } from "./original-image";
 import { z } from "zod";
 export { AREA_RULES, areaPoints } from "./scoring";
 
@@ -25,7 +26,7 @@ export const SettingsUpdateSchema = z.object({
   differencesPerPlayer: z.number().int().min(1).max(5).optional(),
   drawingSeconds: z.number().int().min(30).max(300).optional(),
   answeringSeconds: z.number().int().min(30).max(300).optional(),
-  deckId: z.enum(["random", "animals", "people"]).optional(),
+  deckId: z.enum(["random", "animals", "people", "original"]).optional(),
   // Compatibility for the old preview: individual choices now select their deck.
   imageUrl: z.enum(["/assets/bakery.png", "/assets/harbor.png", "/assets/camping.png", "/assets/space.png", "/assets/onsen.png"]).optional(),
 }).strict().refine(value => Object.keys(value).length > 0);
@@ -41,6 +42,7 @@ const envelope = z.object({ commandId: z.uuid(), gameNo: z.number().int().nonneg
 const empty = z.object({}).strict();
 export const ClientCommandSchema = z.discriminatedUnion("type", [
   envelope.extend({ type: z.literal("session.resume"), payload: z.object({ participantId: z.uuid(), reconnectSecret: z.string().min(1).max(256) }) }),
+  envelope.extend({ type: z.literal("member.leave"), payload: empty }),
   envelope.extend({ type: z.literal("member.ready"), payload: z.object({ ready: z.boolean() }) }),
   envelope.extend({ type: z.literal("member.kick"), payload: z.object({ participantId: z.uuid() }) }),
   envelope.extend({ type: z.literal("settings.update"), payload: SettingsUpdateSchema }),
@@ -62,7 +64,7 @@ export type Participant = { id: string; nickname: string; joinOrder: number; con
 export type Difference = { id: string; creatorId: string; strokes: Stroke[]; foundBy?: string; foundAt?: string; points?: {finder:number;unfound:number} };
 export type ScoreBreakdown = { participantId: string; found: number; unfound: number; penalty: number; total: number };
 export type RoundReview = { stageNo: number; imageUrl: string; differences: Difference[]; scores?: ScoreBreakdown[] };
-export type RoomSnapshot = { roomId: string; roomCode: string; phase: Phase; revision: number; gameNo: number; stageNo: number; stageCount: number; imageUrl: string; phaseEndsAt?: string; selfId: string; participants: Participant[]; differences: Difference[]; settings: GameSettings; rounds?: RoundReview[] };
+export type RoomSnapshot = { originalImage?: import("./original-image").OriginalImage; roomId: string; roomCode: string; phase: Phase; revision: number; gameNo: number; stageNo: number; stageCount: number; imageUrl: string; phaseEndsAt?: string; selfId: string; participants: Participant[]; differences: Difference[]; settings: GameSettings; rounds?: RoundReview[] };
 export type AnswerFeedback = { participantId: string; result: "CORRECT" | "MISS" | "ALREADY_FOUND" | "COOLDOWN" | "OWN_DIFFERENCE"; differenceId?: string; at: string; blockedUntil?: string; scoreDelta?: number };
 export type ServerEvent =
   | { type: "state.snapshot"; revision: number; payload: RoomSnapshot }

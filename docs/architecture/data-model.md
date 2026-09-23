@@ -103,16 +103,6 @@ type GameSettings = {
 - 部屋削除時に参加者、描画、回答、得点をまとめて削除する。
 - 将来集計値を残す場合も個人や部屋を復元できない形にする。
 
-## 6. オリジナル画像の将来データ（未実装）
+## 6. オリジナル画像
 
-オリジナル画像対応時はRoomへ一時参照を追加し、画像本体をSQLiteへ格納しない。
-
-| 項目 | 内容 |
-| --- | --- |
-| `originalImageKey` | R2上の推測困難な一時オブジェクトキー |
-| `originalImageMime` | 検証・再エンコード後のMIME |
-| `originalImageWidth` / `originalImageHeight` | 検証後の画像寸法 |
-| `originalImageBytes` | 上限確認用の保存サイズ |
-| `originalImageExpiresAt` | 部屋の削除期限と連動する削除予定時刻 |
-
-オリジナル画像は色情報に依存する可視面積・面積別得点を持たず、通常の線データと`hitRegion`だけを判定に使う。固定配点は共有設定から参照する。
+Room.originalImageにid・URL・幅・高さ・保存バイト数・部屋連動の任意expiresAtを持つ。画像本体は同じDurable Object内のimage:0以降へ64KiB単位で保存し、imageChunksで数を管理する。imageOperationsは直近100操作、uploadWindowは部屋単位の送信頻度制限を管理する。詳細は[オリジナル画像](original-images.md)。

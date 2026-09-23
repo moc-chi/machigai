@@ -18,9 +18,9 @@ export async function makeShareImage(imageUrl: string, differences: Difference[]
   ctx.textAlign="center";ctx.font='800 54px "M PLUS Rounded 1c", sans-serif';ctx.fillStyle="#ffffff";
   ctx.fillText(labels.title,540,95,960);
   ctx.fillStyle="#ffc94b";ctx.font='800 44px "M PLUS Rounded 1c", sans-serif';ctx.fillText(labels.count,540,165,960);
-  const panelWidth=960,panelHeight=panelWidth*image.naturalHeight/image.naturalWidth;
+  const scale=Math.min(960/image.naturalWidth,720/image.naturalHeight),panelWidth=image.naturalWidth*scale,panelHeight=image.naturalHeight*scale;
   for(const [index,label] of [labels.original,labels.changed].entries()){
-    const top=250+index*810,y=top+(720-panelHeight)/2,x=60;
+    const top=250+index*810,y=top+(720-panelHeight)/2,x=(1080-panelWidth)/2;
     ctx.textAlign="left";ctx.font='800 30px "M PLUS Rounded 1c", sans-serif';
     ctx.fillStyle=index?"#ffc94b":"#ffffff";ctx.fillText(label,x,top-25,panelWidth);
     ctx.fillStyle="#fffaf0";ctx.fillRect(x-5,y-5,panelWidth+10,panelHeight+10);

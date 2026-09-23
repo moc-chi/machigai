@@ -61,3 +61,5 @@ export function drawSmoothStroke(ctx: CanvasRenderingContext2D, stroke: Stroke, 
   const last = stroke.points.at(-1)!;
   ctx.lineTo(last.x * width, last.y * height); ctx.stroke();
 }
+
+export { validateOriginalSlots } from "./visibility";

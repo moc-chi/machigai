@@ -26,7 +26,6 @@ export const translations = [
   ["chooseImage","画像を選択","Choose image","选择图片","選擇圖片","이미지 선택","Bild auswählen","Choisir une image","Elegir imagen","Escolher imagem"],
   ["changeImage","画像を変更","Change image","更换图片","更換圖片","이미지 변경","Bild ändern","Changer l’image","Cambiar imagen","Trocar imagem"],
   ["removeImage","削除","Remove","删除","刪除","삭제","Entfernen","Supprimer","Eliminar","Remover"],
-  ["uploadHint","PNG・JPEG・WebP。横長または正方形に近い画像がおすすめです。","PNG, JPEG or WebP. Landscape or near-square images work best.","支持PNG、JPEG、WebP，推荐横向或接近正方形的图片。","支援PNG、JPEG、WebP，建議橫向或接近正方形的圖片。","PNG·JPEG·WebP. 가로형 또는 정사각형에 가까운 이미지를 권장합니다.","PNG, JPEG oder WebP. Querformat oder fast quadratisch empfohlen.","PNG, JPEG ou WebP. Format paysage ou presque carré recommandé.","PNG, JPEG o WebP. Se recomienda formato horizontal o casi cuadrado.","PNG, JPEG ou WebP. Recomendamos formato horizontal ou quase quadrado."],
   ["screenOnly","画面確認用です。まだゲームには使用されません。","Preview only; it is not used in the game yet.","仅供界面预览，暂不会用于游戏。","僅供畫面預覽，尚不會用於遊戲。","화면 확인용이며 아직 게임에는 사용되지 않습니다.","Nur Vorschau; noch nicht im Spiel verwendbar.","Aperçu uniquement ; pas encore utilisé dans le jeu.","Solo vista previa; aún no se usa en el juego.","Apenas prévia; ainda não é usada no jogo."],
   ["hostChoosingImage","ホストが画像を選んでいます","The host is choosing an image","房主正在选择图片","房主正在選擇圖片","호스트가 이미지를 선택하고 있어요","Der Gastgeber wählt ein Bild","L’hôte choisit une image","El anfitrión está eligiendo una imagen","O anfitrião está escolhendo uma imagem"],
   ["countValue","{n}個","{n}","{n}个","{n}個","{n}개","{n}","{n}","{n}","{n}"],
@@ -935,6 +934,13 @@ export const translations = [
   ,["notReady","未確定","Not done","未完成","未完成","미확정","Nicht fertig","Non terminé","Sin terminar","Não concluído"]
   ,["differenceSlots","間違いの切り替え","Difference selector","不同之处切换","不同之處切換","차이 전환","Unterschied auswählen","Sélecteur de différence","Selector de diferencias","Seletor de diferenças"]
   ,["differenceNumber","間違い {n}","Difference {n}","不同之处 {n}","不同之處 {n}","차이 {n}","Unterschied {n}","Différence {n}","Diferencia {n}","Diferença {n}"]
+  ,["changeImage", "画像を変更", "Change image", "更换图片", "更換圖片", "이미지 변경", "Bild ändern", "Changer l’image", "Cambiar imagen", "Alterar imagem"]
+  ,["imageErrorTitle", "画像を追加できません", "Could not add image", "无法添加图片", "無法新增圖片", "이미지를 추가할 수 없어요", "Bild kann nicht hinzugefügt werden", "Ajout impossible", "No se puede añadir la imagen", "Não foi possível adicionar a imagem"]
+  ,["imageInvalid", "静止画のPNG・JPEG・WebPを選んでください。", "Choose a still PNG, JPEG or WebP image.", "请选择静态PNG、JPEG或WebP。", "請選擇靜態PNG、JPEG或WebP。", "정지 PNG, JPEG, WebP 이미지를 선택하세요.", "Wähle ein statisches PNG-, JPEG- oder WebP-Bild.", "Choisissez une image PNG, JPEG ou WebP fixe.", "Elige una imagen fija PNG, JPEG o WebP.", "Escolha uma imagem estática PNG, JPEG ou WebP."]
+  ,["imageLarge", "画像は5MB以下にしてください。", "Choose an image up to 5MB.", "请选择5MB以下的图片。", "請選擇5MB以下的圖片。", "5MB 이하의 이미지를 선택하세요.", "Wähle ein Bild bis 5 MB.", "Choisissez une image de 5 Mo maximum.", "Elige una imagen de hasta 5 MB.", "Escolha uma imagem de até 5 MB."]
+  ,["imageDimensions", "画像の縦横比やサイズを確認してください（32px以上・2400万画素以下・縦横比4:1以内）。", "Check dimensions: at least 32px, up to 24MP, aspect ratio within 4:1.", "检查尺寸：至少32px、最多2400万像素、比例4:1以内。", "檢查尺寸：至少32px、最多2400萬畫素、比例4:1以內。", "32px 이상, 2400만 화소 이하, 비율 4:1 이내인지 확인하세요.", "Prüfe die Größe: ab 32 px, bis 24 MP, Seitenverhältnis max. 4:1.", "Vérifiez : 32 px minimum, 24 MP maximum, ratio limité à 4:1.", "Comprueba: mínimo 32 px, máximo 24 MP, proporción hasta 4:1.", "Verifique: mínimo 32 px, máximo 24 MP, proporção até 4:1."]
+  ,["imageMissing", "画像を読み込めません。再読み込みするか、ホストに画像の選び直しをお願いしてください。", "Image unavailable. Reload or ask the host to choose it again.", "图片不可用。请刷新或让房主重新选择。", "圖片無法使用。請重新整理或讓房主重新選擇。", "이미지를 불러올 수 없어요. 새로고침하거나 호스트에게 다시 선택해 달라고 하세요.", "Bild nicht verfügbar. Lade neu oder bitte den Host um ein neues Bild.", "Image indisponible. Rechargez ou demandez à l’hôte de la choisir à nouveau.", "Imagen no disponible. Recarga o pide al anfitrión que la elija de nuevo.", "Imagem indisponível. Recarregue ou peça ao anfitrião para selecionar novamente."]
+  ,["uploadRate", "少し待ってから画像を変更してください（5秒に1回・1時間20回まで）。", "Wait before changing the image (once per 5 seconds, 20 per hour).", "请稍后再试（每5秒1次，每小时20次）。", "請稍後再試（每5秒1次，每小時20次）。", "잠시 후 다시 시도하세요(5초에 1번, 시간당 20번).", "Bitte warten (alle 5 Sekunden, max. 20 pro Stunde).", "Patientez (une fois par 5 secondes, 20 par heure).", "Espera (una vez cada 5 segundos, 20 por hora).", "Aguarde (uma vez a cada 5 segundos, 20 por hora)."]
 ] as const;
 export type TextKey = typeof translations[number][0];
 export function translate(language: Language, key: TextKey, values: Record<string,string|number> = {}): string {
@@ -945,6 +951,8 @@ export function translate(language: Language, key: TextKey, values: Record<strin
 }
 export function useText() { const language = useContext(LanguageContext); return (key: TextKey, values?: Record<string,string|number>) => translate(language,key,values); }
 export function errorKey(code: string): TextKey {
+  if(code.startsWith("IMAGE_"))return ({IMAGE_TOO_LARGE:"imageLarge",IMAGE_DIMENSIONS:"imageDimensions",IMAGE_MISSING:"imageMissing",IMAGE_INVALID:"imageInvalid",IMAGE_TIMEOUT:"imageMissing"} as Record<string,TextKey>)[code]??"imageInvalid";
+  if(code==="RATE_LIMITED")return "uploadRate";
   if(code==="DRAWING_NOT_VISIBLE")return "notVisible";
   if(code==="DRAWING_TOO_COMPLEX")return "tooComplex";
   return ({ INVALID_PAYLOAD: "invalid", NOT_HOST: "notHost", ROOM_NOT_FOUND: "noRoom", ROOM_FULL: "full", SESSION_REVOKED: "revoked", NOT_ENOUGH_PLAYERS: "enough", STALE_COMMAND: "stale", INVALID_PHASE: "stale", ALREADY_CONFIRMED: "confirmed", GAME_ALREADY_STARTED: "stale" } as Record<string,TextKey>)[code] ?? "error";

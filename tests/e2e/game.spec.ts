@@ -174,7 +174,7 @@ test("mobile QR and toolbar fit without horizontal scrolling",async({page,browse
   await expect.poll(()=>page.locator(".lobby-settings .series-options img").evaluateAll(images=>images.every(image=>(image as HTMLImageElement).complete&&(image as HTMLImageElement).naturalWidth>0))).toBe(true);
   expect(await page.evaluate(()=>document.documentElement.scrollWidth)).toBeLessThanOrEqual(320);
   const chooserPromise=page.waitForEvent("filechooser");await page.getByRole("button",{name:"オリジナル",exact:false}).click();const chooser=await chooserPromise;
-  await chooser.setFiles("C:/machigai/apps/web/public/assets/bakery.png");
+  await chooser.setFiles("apps/web/public/assets/bakery.png");
   await expect(page.getByRole("button",{name:"オリジナル",exact:false})).toHaveAttribute("aria-pressed","true");
   await expect(page.getByRole("button",{name:"オリジナル",exact:false}).locator("img")).toHaveAttribute("src",/^blob:/);
   await expect(page.getByText("画面確認用です。まだゲームには使用されません。",{exact:true})).toHaveCount(0);
@@ -191,7 +191,7 @@ test("mobile QR and toolbar fit without horizontal scrolling",async({page,browse
     await expect(guest.getByRole("button",{name:"このフェーズを終了（ホストのみ）",exact:true})).toHaveCount(0);
     expect(await page.evaluate(()=>document.documentElement.scrollWidth)).toBeLessThanOrEqual(320);
     for(const button of await page.locator(".toolbar button").all()){const b=await button.boundingBox();expect(b!.x).toBeGreaterThanOrEqual(0);expect(b!.x+b!.width).toBeLessThanOrEqual(320)}
-    const mode=await page.getByRole("button",{name:"描画",exact:true}).boundingBox();const undo=await page.getByRole("button",{name:"1本戻す",exact:true}).boundingBox();expect(Math.abs(undo!.y-mode!.y)).toBeLessThanOrEqual(6);
+    const mode=await page.getByRole("button",{name:"描画",exact:true}).boundingBox();const undo=await page.getByRole("button",{name:"1本戻す",exact:true}).boundingBox();expect(Math.abs((undo!.y+undo!.height/2)-(mode!.y+mode!.height/2))).toBeLessThanOrEqual(6);
     await expect(page.locator(".pen-preview")).not.toContainText("#");
     await page.getByLabel("拡大率",{exact:true}).fill("3");
     await expect(page.locator(".zoom-controls output")).toHaveText("300%");
@@ -239,4 +239,51 @@ test("all ready submits the latest local drawings once before countdown",async({
     await expect(host.locator(".answer-phase")).toBeVisible({timeout:7000});
     await expect(host.locator(".answer-phase")).toContainText("0/2");
   }finally{await host.close();await guest.close()}
+});
+
+test("portrait original uploads sync, fit, survive reload and play",async({page,browser},info)=>{
+  page.setDefaultTimeout(12000);
+  await page.setViewportSize({width:320,height:568});await enter(page,"Host");
+  const guest=await browser.newPage();
+  try{
+    await enter(guest,"Guest",(await page.locator(".invite-copy strong").textContent())!);
+    await page.getByRole("button",{name:"ゲーム設定",exact:true}).click();
+    await page.locator('input[type=file]').setInputFiles({name:"bad.svg",mimeType:"image/svg+xml",buffer:Buffer.from('<svg/>')});
+    await expect(page.getByRole("alertdialog",{name:"画像を追加できません"})).toContainText("静止画");
+  await page.getByRole("alertdialog",{name:"画像を追加できません"}).getByRole("button",{name:"閉じる",exact:true}).click();
+    const sharp=(await import('sharp')).default;
+    const buffer=await sharp({create:{width:300,height:600,channels:3,background:'#aabbcc'}}).png().toBuffer();
+    await page.locator('input[type=file]').setInputFiles({name:"portrait.png",mimeType:"image/png",buffer});
+    await expect(page.getByRole("button",{name:"オリジナル",exact:false}).locator('img')).toHaveAttribute('src',/^blob:/);
+    await expect(guest.getByRole("button",{name:"オリジナル",exact:false}).locator('img')).toHaveAttribute('src',/^blob:/);
+    const fits=async(selector:string)=>{
+      const b=await page.locator(selector).boundingBox();expect(b).not.toBeNull();
+      expect(b!.x).toBeGreaterThanOrEqual(-1);expect(b!.y).toBeGreaterThanOrEqual(-1);
+      expect(b!.x+b!.width).toBeLessThanOrEqual(321);expect(b!.y+b!.height).toBeLessThanOrEqual(569);
+    };
+    await fits('.lobby-footer');await fits('.upload-status');
+    await page.reload();await page.getByRole("button",{name:"ゲーム設定",exact:true}).click();
+    await expect(page.getByRole("button",{name:"オリジナル",exact:false}).locator('img')).toHaveAttribute('src',/^blob:/);
+    await page.getByRole("button",{name:"ゲームをはじめる"}).click();
+    await expect(page.locator('.board-loading')).toHaveCount(0);await fits('.drawing-toolbar');await fits('.board-layer');
+    await finishDrawing(page,[[.2,.3]]);await finishDrawing(guest,[[.6,.6]]);
+    await expect(page.locator('.answer-phase')).toBeVisible();await fits('.answer-toolbar');
+    await expect(page.locator('.answer-switch')).toHaveCount(0);
+    const answerBoards=await page.locator('.answer-phase .answer-board').all();expect(answerBoards).toHaveLength(2);
+    const firstAnswerBoard=await answerBoards[0].boundingBox(),secondAnswerBoard=await answerBoards[1].boundingBox();
+    expect(firstAnswerBoard!.y+firstAnswerBoard!.height).toBeLessThanOrEqual(secondAnswerBoard!.y+1);
+    expect(secondAnswerBoard!.y+secondAnswerBoard!.height).toBeLessThanOrEqual(569);
+    for(const button of await page.locator('.answer-toolbar button').all()){const b=await button.boundingBox();expect(b!.x+b!.width).toBeLessThanOrEqual(321);expect(b!.y+b!.height).toBeLessThanOrEqual(569)}
+    await page.screenshot({path:info.outputPath('portrait-answer.png')});
+    page.once('dialog',d=>void d.accept());await page.getByRole('button',{name:'このフェーズを終了'}).click();
+    await expect(page.getByRole('heading',{name:'ラウンド結果'})).toBeVisible();
+    await page.getByRole('button',{name:'作品',exact:true}).click();
+    await fits('.result-actions');await fits('.review .share-actions');
+    for(const board of await page.locator('.review .board-layer').all()){
+      const b=await board.boundingBox();expect(b!.height).toBeGreaterThan(40);expect(b!.y+b!.height).toBeLessThanOrEqual(569);
+      expect(b!.width/b!.height).toBeCloseTo(.5,1);
+    }
+    await page.screenshot({path:info.outputPath('portrait-result.png')});
+    const download=page.waitForEvent('download');await page.getByRole('button',{name:'間違い探しを保存',exact:true}).click();await download;
+  }finally{await guest.close()}
 });
