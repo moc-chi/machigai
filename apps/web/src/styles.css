@@ -15,11 +15,9 @@
 .original-notice{bottom:85px;z-index:21}
 .share-preview{max-width:540px;margin-left:auto;margin-right:auto}
 .start-hint{margin-top:18px}
-.series-options{display:grid;gap:10px;grid-template-columns:1fr 1fr}
-.series-options>button{display:block;text-align:left;min-width:0;padding:12px}
-.series-options strong{display:block;margin-bottom:8px}
-.series-options .deck-thumbnails{grid-template-columns:repeat(3,minmax(0,1fr))}
-.series-options .deck-thumbnails img:only-child{grid-column:1/-1;max-height:140px;object-fit:contain}
+.image-options{display:grid;gap:10px;grid-template-columns:1fr 1fr}
+.image-options>button{display:block;text-align:left;min-width:0;padding:12px}
+.image-options strong{display:block;margin-bottom:8px}
 .pen-preview{width:40px;height:40px;min-width:40px;padding:0;display:grid;place-items:center;border:1px solid #d9dfdf;border-radius:50%}
 .pen-preview i{border-radius:50%;outline:1px solid #17375e40;max-height:none}
 .drawing-toolbar .mode-controls{flex-wrap:nowrap}
@@ -33,7 +31,7 @@
 .share-panel details{margin-top:14px}
 .hero-sample{grid-template-columns:1fr}.rule-details table{width:100%;border-collapse:collapse;margin:10px 0 14px;font-size:13px}.rule-details th,.rule-details td{padding:7px 5px;border-bottom:1px solid #e4d5b8;text-align:center}.rule-details th:first-child{text-align:left}.rule-details thead th{font-size:11px;color:var(--muted)}
 .hero-added{fill:none;stroke:#17375e;stroke-width:.55;stroke-linecap:round;stroke-linejoin:round;filter:drop-shadow(0 .35px .2px #fff)}.hero-added .fill-coral{fill:#ed725d}.hero-added .fill-cream{fill:#fff1c6}.hero-added .fill-bread{fill:#e8aa4b}.hero-added .fill-pot{fill:#d36c50}.hero-added .leaf{fill:#69a65a}
-@media(max-width:600px){.drawing-toolbar .mode-controls{flex-basis:100%;gap:5px}.drawing-toolbar .mode-controls button{padding:7px;flex:1}.drawing-toolbar .mode-controls button span{display:none}.series-options{grid-template-columns:1fr}.series-options .deck-thumbnails{grid-template-columns:repeat(5,minmax(0,1fr))}.series-options .deck-thumbnails img:only-child{max-height:120px;justify-self:start}.pen-preview{min-width:36px;width:36px;height:36px}}
+@media(max-width:600px){.drawing-toolbar .mode-controls{flex-basis:100%;gap:5px}.drawing-toolbar .mode-controls button{padding:7px;flex:1}.drawing-toolbar .mode-controls button span{display:none}.image-options{grid-template-columns:1fr}.pen-preview{min-width:36px;width:36px;height:36px}}
 
 /* Full-screen application: navigation replaces page and panel scrolling. */
 html,body,#root{height:100%;overflow:hidden}
@@ -89,6 +87,7 @@ html,body,#root{height:100%;overflow:hidden}
 @media(max-width:600px){.lobby-footer{grid-template-columns:auto 44px minmax(0,1fr)}.invite-copy>button{width:max-content;padding-inline:8px}.invite-copy small{text-align:left}}
 .app-shell>main:has(.lobby-console){display:grid;grid-template-rows:minmax(0,1fr)}.app-shell>main>.lobby-console{height:auto;align-self:stretch}.lobby-console{grid-template-rows:auto minmax(0,1fr) max-content;overflow:hidden}.lobby-panels{align-self:stretch;overflow:hidden}.lobby-settings{grid-template-rows:max-content minmax(0,1fr);overflow:hidden}.lobby-settings>.deck-card,.lobby-settings>.game-settings-tab{height:auto;align-self:stretch;overflow:hidden}.lobby-settings>.deck-card{grid-template-rows:minmax(0,1fr) max-content}.lobby-footer{min-height:max-content;align-self:end}.series-scroll{height:100%}
 @media(max-height:700px){.lobby-global-top{padding-block:5px}.app-shell>main:has(.lobby-console){padding-top:5px}.lobby-console{gap:5px}.lobby-panels>aside,.lobby-settings{padding:8px}.settings-tabs{margin:-8px -8px 5px}.lobby-settings .series-options>button{min-height:120px}.lobby-settings .series-options img{height:76px}.lobby-settings .series-options svg{width:46px;height:46px}.lobby-footer button{min-height:38px}.invite-copy>button{min-height:34px}}
+.lobby-settings>.deck-card{grid-template-rows:auto minmax(0,1fr)}.image-filter{display:flex;justify-content:flex-end;align-items:center;margin-bottom:8px}.image-filter label{display:flex;gap:6px;align-items:center;font-size:12px;font-weight:700}.image-filter select{min-width:120px;display:block}.image-scroll{min-height:0;height:100%;overflow-y:auto;overscroll-behavior:contain;padding-right:4px}.lobby-settings .image-options{grid-template-columns:repeat(4,minmax(0,1fr));align-content:start}.lobby-settings .image-options>button{min-width:0;min-height:172px;display:grid;grid-template-rows:auto minmax(0,1fr) auto;gap:6px;padding:8px}.lobby-settings .image-options img{width:100%;height:120px;object-fit:cover;border-radius:7px}.lobby-settings .image-options svg{width:64px;height:64px;justify-self:center;align-self:center}.difficulty{font-size:11px;text-align:center}.difficulty-easy{color:#23834b}.difficulty-normal{color:#356aa0}.difficulty-hard{color:#d55043}@media(max-width:600px){.lobby-settings .image-options{grid-template-columns:repeat(2,minmax(0,1fr))}.lobby-settings .image-options>button{min-height:112px;padding:5px}.lobby-settings .image-options img{height:72px}.lobby-settings .image-options svg{width:48px;height:48px}}@media(max-height:700px){.lobby-settings .image-options>button{min-height:120px}.lobby-settings .image-options img{height:76px}.lobby-settings .image-options svg{width:46px;height:46px}}
 .lobby-settings{padding:0;grid-template-rows:44px minmax(0,1fr)}.settings-tabs{height:44px;margin:0}.settings-tabs button{height:44px;border-top:0}.lobby-settings>.deck-card,.lobby-settings>.game-settings-tab{box-sizing:border-box;width:auto;height:auto;min-height:0;margin:10px;align-self:stretch}.lobby-settings>.deck-card{padding:10px}.lobby-settings>.game-settings-tab{padding:14px}
 @media(max-width:600px){.lobby-settings{padding:0}.settings-tabs{height:40px;margin:0}.settings-tabs button{height:40px}.lobby-settings>.deck-card,.lobby-settings>.game-settings-tab{width:auto;height:auto;margin:6px}.lobby-settings>.game-settings-tab{padding:8px}}
 .lobby-console{width:100%;margin-block:0;grid-template-rows:minmax(0,1fr) max-content}@media(max-width:600px){.lobby-console{grid-template-rows:auto minmax(0,1fr) max-content}}
