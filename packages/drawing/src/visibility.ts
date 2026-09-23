@@ -80,3 +80,10 @@ export function validateDifferenceSlots(source:SourcePixels,slots:Stroke[][]):Sl
     }catch{return {valid:false,reason:"complex"};}
   });
 }
+
+// Custom photos use geometry only; color matching and area-based scores are disabled.
+export function validateOriginalSlots(width:number,height:number,slots:Stroke[][]):SlotValidation[] {
+  const w=AREA_RULES.sampleWidth,h=Math.round(w*height/width);
+  return validateDifferenceSlots({width:w,height:h,rgb:new Uint8Array(w*h*3).fill(255)},
+    slots.map(strokes=>strokes.map(stroke=>({...stroke,color:"#000000"}))));
+}

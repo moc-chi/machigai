@@ -18,7 +18,7 @@ export function Board({ imageUrl, differences = [], drafts = [], view, onView, t
   const moved = useRef(false); const started = useRef(0); const viewRef = useRef(view); viewRef.current = view;
   const [loaded,setLoaded] = useState(false); const [cursor,setCursor] = useState<{x:number;y:number;size:number}|null>(null);
   const [now,setNow] = useState(Date.now());
-  const image = IMAGES.find(i => i.src === imageUrl) ?? IMAGES[0];
+  const [image,setImage] = useState<{width:number;height:number}>(IMAGES.find(i => i.src === imageUrl) ?? IMAGES[0]);
   const render = useCallback(() => {
     const ctx = canvas.current?.getContext("2d"); const img = source.current; if (!ctx || !img) return;
     const w=canvas.current!.width,h=canvas.current!.height; ctx.clearRect(0,0,w,h); ctx.drawImage(img,0,0,w,h);
@@ -34,7 +34,7 @@ export function Board({ imageUrl, differences = [], drafts = [], view, onView, t
     for (const stroke of drafts) drawSmoothStroke(ctx,stroke,w,h);
     if (current.current) drawSmoothStroke(ctx,current.current,w,h);
   },[differences,drafts,marks,persistentMarks,hideFound,now]);
-  useEffect(() => { const img=new Image(); let active=true; setLoaded(false); img.onload=()=>{if(active){source.current=img;setLoaded(true)}}; img.src=imageUrl; return()=>{active=false}; },[imageUrl]);
+  useEffect(() => { const img=new Image(); let active=true; setLoaded(false); img.onload=()=>{if(active){source.current=img;setImage({width:img.naturalWidth,height:img.naturalHeight});setLoaded(true)}}; img.src=imageUrl; return()=>{active=false}; },[imageUrl]);
   useEffect(()=>{render()},[render,loaded]);
   useEffect(()=>{if(!marks||persistentMarks)return;const timer=setInterval(()=>setNow(Date.now()),200);return()=>clearInterval(timer)},[marks,persistentMarks]);
   useEffect(()=>{

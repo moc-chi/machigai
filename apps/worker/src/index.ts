@@ -1,5 +1,8 @@
+import { ORIGINAL_IMAGE_LIMITS as IMAGE_LIMITS, type OriginalImage } from "@machigai/shared";
+import { validateOriginalSlots } from "@machigai/drawing";
+import { readPixels, pixelsToPng } from "./original-image";
 import { DurableObject } from "cloudflare:workers";
-import { AnswerSchema, ClientCommandSchema, DrawingSubmissionSchema, GAME_DEFAULTS, IMAGES, LIMITS, NicknameSchema, RoomCodeSchema, SettingsUpdateSchema, chooseImage, type AnswerFeedback, type Difference, type GameSettings, type Participant, type RoomSnapshot, type ServerEvent } from "@machigai/shared";
+import { AnswerSchema, ClientCommandSchema, DrawingSubmissionSchema, GAME_DEFAULTS, IMAGES, LIMITS, NicknameSchema, RoomCodeSchema, SettingsUpdateSchema, chooseImage, type AnswerFeedback, type Difference, type GameSettings, type Participant, type RoomSnapshot, type RoundReview, type ServerEvent } from "@machigai/shared";
 import { buildHitRegion, hitTest, type HitRegion } from "@machigai/drawing";
 import { AREA_RULES, areaPoints } from "@machigai/shared";
 import { validateDifferenceSlots, visibleHit, type SourcePixels, type VisibleArea } from "@machigai/drawing";
@@ -7,7 +10,7 @@ import { validateDifferenceSlots, visibleHit, type SourcePixels, type VisibleAre
 interface Env { ROOMS: DurableObjectNamespace<Room>; ASSETS: Fetcher }
 type InternalParticipant = Omit<Participant, "isHost"> & { secretHash: string; kicked: boolean; lastSeenAt: string; drawingSubmitted?: boolean };
 type InternalDifference = Difference & { hitRegion: HitRegion; visible?: VisibleArea };
-type StoredRoom = { roomId: string; roomCode: string; phase: RoomSnapshot["phase"]; revision: number; gameNo: number; imageUrl: string; phaseEndsAt?: string; drawingFinalizingStartedAt?: string; hostTransferAt?: string; expiresAt?: string; hostId: string; participants: InternalParticipant[]; differences: InternalDifference[]; processedCommands: string[]; settings: GameSettings; gameScores?: Record<string,{found:number;unfound:number;penalty:number;total:number}> };
+type StoredRoom = { originalImage?: OriginalImage; imageChunks?: number; imageOperations?: string[]; uploadWindow?: {at:number;count:number;last:number}; roomId: string; roomCode: string; phase: RoomSnapshot["phase"]; revision: number; gameNo: number; stageNo: number; imageUrl: string; phaseEndsAt?: string; drawingFinalizingStartedAt?: string; hostTransferAt?: string; expiresAt?: string; hostId: string; participants: InternalParticipant[]; differences: InternalDifference[]; processedCommands: string[]; settings: GameSettings; rounds: RoundReview[]; roundScores?: Record<string,{found:number;unfound:number;penalty:number;total:number}> };
 type SocketSession = { participantId?: string };
 const json = (data: unknown, status = 200) => new Response(JSON.stringify(data), { status, headers: { "content-type": "application/json; charset=utf-8" } });
 const randomCode = () => Array.from(crypto.getRandomValues(new Uint8Array(6)), value => "ABCDEFGHJKLMNPQRSTUVWXYZ23456789"[value % 32]).join("");
@@ -25,8 +28,9 @@ export class Room extends DurableObject<Env> {
     ctx.blockConcurrencyWhile(async () => {
       this.room = await ctx.storage.get<StoredRoom>("room");
       if (this.room) {
-        this.room.settings = { ...GAME_DEFAULTS, ...this.room.settings, imageIds: Array.isArray(this.room.settings.imageIds) ? this.room.settings.imageIds : GAME_DEFAULTS.imageIds, minPlayers: GAME_DEFAULTS.minPlayers, missPenalty: GAME_DEFAULTS.missPenalty, missCooldownSeconds: GAME_DEFAULTS.missCooldownSeconds };
-        this.room.gameScores ??= {};
+        this.room.settings = { ...GAME_DEFAULTS, ...this.room.settings, minPlayers: GAME_DEFAULTS.minPlayers, missPenalty: GAME_DEFAULTS.missPenalty, missCooldownSeconds: GAME_DEFAULTS.missCooldownSeconds };
+        this.room.rounds ??= [];
+        this.room.roundScores ??= {};
       }
     });
   }
@@ -38,6 +42,8 @@ export class Room extends DurableObject<Env> {
     return this.serial(async () => {
       try {
         const url = new URL(request.url);
+        await this.expireIfDue();
+        if(url.pathname.endsWith("/original-image")) return await this.originalImage(request);
         if (url.pathname.endsWith("/create") && request.method === "POST") return await this.create(request);
         if (url.pathname.endsWith("/join") && request.method === "POST") return await this.join(request);
         if (url.pathname.endsWith("/socket") && request.headers.get("Upgrade") === "websocket") {
@@ -50,8 +56,59 @@ export class Room extends DurableObject<Env> {
           return new Response(null, { status: 101, webSocket: pair[0] });
         }
         return json({ code: "NOT_FOUND" }, 404);
-      } catch { return json({ code: "INVALID_PAYLOAD" }, 400); }
+      } catch (error) { const code=error instanceof CommandError?error.code:"INVALID_PAYLOAD";return json({ code },code==="SESSION_REVOKED"||code==="NOT_HOST"?403:code==="ROOM_NOT_FOUND"?404:400); }
     });
+  }
+  private async destroy() {
+    for(const ws of this.sockets.keys()){this.send(ws,"error",{code:"ROOM_NOT_FOUND",message:"ROOM_NOT_FOUND"});ws.close(4000,"expired")}
+    this.sockets.clear();await this.ctx.storage.deleteAll();await this.ctx.storage.deleteAlarm();
+    this.room=undefined;this.sourceCache=undefined;
+  }
+  private async expireIfDue() {
+    if(this.room && [this.room.expiresAt].some(d=>d&&Date.parse(d)<=Date.now()))await this.destroy();
+  }
+  private async originalImage(request:Request):Promise<Response> {
+    const r=this.room;if(!r)return json({code:"ROOM_NOT_FOUND"},404);
+    const id=request.headers.get("x-participant-id"),auth=request.headers.get("authorization");
+    if(!auth?.startsWith("Bearer ")||auth.length>300)throw new CommandError("SESSION_REVOKED");
+    const member=this.members().find(p=>p.id===id);
+    if(!member||member.secretHash!==await sha256(auth.slice(7)))throw new CommandError("SESSION_REVOKED");
+    if(request.method==="GET"){
+      if(!r.originalImage||new URL(request.url).searchParams.get("version")!==r.originalImage.id)return json({code:"IMAGE_MISSING"},404);
+      const parts:Uint8Array[]=[];for(let i=0;i<(r.imageChunks??0);i++){const data=await this.ctx.storage.get<Uint8Array>("image:"+i);if(!data)return json({code:"IMAGE_MISSING"},404);parts.push(data)}
+      return new Response(new Blob(parts as BlobPart[],{type:"image/png"}),{headers:{"content-type":"image/png","cache-control":"private, no-store","x-content-type-options":"nosniff","content-security-policy":"default-src 'none'","cross-origin-resource-policy":"same-origin"}});
+    }
+    if(!["POST","DELETE"].includes(request.method))return json({code:"NOT_FOUND"},405);
+    this.requireHost(member.id);this.requirePhase("LOBBY");
+    const operation=request.headers.get("x-command-id")??"";
+    if(!/^[0-9a-f]{8}-[0-9a-f-]{27}$/i.test(operation))throw new CommandError("INVALID_PAYLOAD");
+    const key=member.id+":"+operation;
+    if(r.imageOperations?.includes(key))return json({ok:true});
+    if(request.headers.get("x-image-version")!==(r.originalImage?.id??"none"))return json({code:"STALE_COMMAND"},409);
+    let png:Uint8Array<ArrayBuffer>|undefined,meta:OriginalImage|undefined;
+    if(request.method==="POST"){
+      const now=Date.now(),rate=r.uploadWindow;
+      const current=rate&&now-rate.at<IMAGE_LIMITS.rateWindowMs?rate:{at:now,count:0,last:0};
+      if(current.count>=IMAGE_LIMITS.maxUploadsPerHour||now-current.last<IMAGE_LIMITS.uploadIntervalMs)return json({code:"RATE_LIMITED"},429);
+      r.uploadWindow={at:current.at,count:current.count+1,last:now};await this.save();
+      try{
+        const pixels=await readPixels(request);png=await pixelsToPng(pixels);
+        const imageId=crypto.randomUUID();
+        meta={id:imageId,url:`/api/v1/rooms/${r.roomCode}/original-image?version=${imageId}`,width:pixels.width,height:pixels.height,bytes:png.length,expiresAt:r.expiresAt};
+      }catch(error){const code=error instanceof Error?error.message:"IMAGE_INVALID";return json({code:["IMAGE_TOO_LARGE","IMAGE_TIMEOUT"].includes(code)?code:"IMAGE_INVALID"},400)}
+    }
+    // Fixed keys and one transaction: replacements, metadata and deletion cannot orphan bytes.
+    const next={...r,originalImage:meta,imageChunks:png?Math.ceil(png.length/IMAGE_LIMITS.chunkBytes):0,
+      imageOperations:[...(r.imageOperations??[]),key].slice(-100),revision:r.revision+1,
+      settings:{...r.settings,deckId:meta?"original":r.settings.deckId==="original"?"random":r.settings.deckId}};
+    await this.ctx.storage.transaction(async txn=>{
+      for(let i=0;i<(r.imageChunks??0);i++)await txn.delete("image:"+i);
+      if(png)for(let i=0;i<next.imageChunks;i++)await txn.put("image:"+i,png.slice(i*IMAGE_LIMITS.chunkBytes,(i+1)*IMAGE_LIMITS.chunkBytes));
+      await txn.put("room",next);
+      const dates=[next.phaseEndsAt,next.hostTransferAt,next.expiresAt].filter((d):d is string=>!!d).map(Date.parse);
+      if(dates.length)await txn.setAlarm(Math.max(Date.now()+1,Math.min(...dates)));else await txn.deleteAlarm();
+    });
+    this.room=next;await this.changed();return json({ok:true});
   }
   private async makeParticipant(nickname: string, joinOrder: number) {
     const reconnectSecret = secret();
@@ -65,7 +122,7 @@ export class Room extends DurableObject<Env> {
     if (this.room) return json({ code: "ROOM_EXISTS" }, 409);
     const body = await request.json<{ nickname: string; roomCode: string }>();
     const { participant, reconnectSecret } = await this.makeParticipant(NicknameSchema.parse(body.nickname), 1);
-    this.room = { roomId: crypto.randomUUID(), roomCode: RoomCodeSchema.parse(body.roomCode), phase: "LOBBY", revision: 1, gameNo: 1, imageUrl: IMAGES[0].src, hostId: participant.id, participants: [participant], differences: [], processedCommands: [], settings: { ...GAME_DEFAULTS }, expiresAt: new Date(Date.now() + 30 * 60000).toISOString() };
+    this.room = { roomId: crypto.randomUUID(), roomCode: RoomCodeSchema.parse(body.roomCode), phase: "LOBBY", revision: 1, gameNo: 1, stageNo: 0, imageUrl: IMAGES[0].src, hostId: participant.id, participants: [participant], differences: [], rounds: [], processedCommands: [], settings: { ...GAME_DEFAULTS }, expiresAt: new Date(Date.now() + 30 * 60000).toISOString() };
     await this.save(); return this.response(participant.id, reconnectSecret, 201);
   }
   private async join(request: Request) {
@@ -80,6 +137,7 @@ export class Room extends DurableObject<Env> {
   private async onMessage(socket: WebSocket, raw: string) {
     let id: string | undefined;
     try {
+      await this.expireIfDue();
       if (!this.room) throw new CommandError("ROOM_NOT_FOUND");
       if (new TextEncoder().encode(raw).length > LIMITS.maxMessageBytes) throw new CommandError("INVALID_PAYLOAD");
       const decoded: unknown = JSON.parse(raw);
@@ -106,19 +164,30 @@ export class Room extends DurableObject<Env> {
         this.send(socket, "state.snapshot", this.snapshot(member.id));
         this.send(socket, "command.ack", { commandId: id }); return;
       }
-      if (command.gameNo !== undefined && command.gameNo !== this.room.gameNo) throw new CommandError("STALE_COMMAND");
+      if ((command.gameNo !== undefined && command.gameNo !== this.room.gameNo) || (command.stageNo !== undefined && command.stageNo !== this.room.stageNo)) throw new CommandError("STALE_COMMAND");
       let feedback: AnswerFeedback | undefined;
       switch (command.type) {
+        case "member.leave": {
+          member.kicked=true;member.connected=false;
+          this.send(socket,"command.ack",{commandId:id});
+          for(const [ws,session] of this.sockets)if(session.participantId===member.id){this.sockets.delete(ws);ws.close(4001,"left")}
+          if(!this.members().length){await this.destroy();return}
+          if(!this.members().some(p=>p.connected)&&!["FINAL_RESULT","ENDED"].includes(this.room.phase))this.room.expiresAt=new Date(Date.now()+(this.room.phase==="LOBBY"?1800000:7200000)).toISOString();
+          if(member.id===this.room.hostId){this.room.hostId=this.members().sort((a,b)=>Number(b.connected)-Number(a.connected)||a.joinOrder-b.joinOrder)[0]!.id;delete this.room.hostTransferAt}
+          await this.changed();return;
+        }
         case "member.ready": this.requirePhase("LOBBY"); member.ready = command.payload.ready; break;
         case "settings.update": {
           this.requireHost(member.id); this.requirePhase("LOBBY");
-          this.room.settings = { ...this.room.settings, ...SettingsUpdateSchema.parse(command.payload) }; break;
+          const { imageUrl: _legacy, ...settings } = SettingsUpdateSchema.parse(command.payload);
+          if(settings.deckId==="original"&&!this.room.originalImage)throw new CommandError("IMAGE_MISSING");
+          this.room.settings = { ...this.room.settings, ...settings }; break;
         }
         case "game.start":
           this.requireHost(member.id); this.requirePhase("LOBBY");
           if (this.members().filter(p => p.connected).length < this.room.settings.minPlayers) throw new CommandError("NOT_ENOUGH_PLAYERS");
-          if (!this.room.settings.imageIds.length) throw new CommandError("INVALID_PAYLOAD");
-          this.startDrawing(); break;
+          if(this.room.settings.deckId==="original"&&!this.room.originalImage)throw new CommandError("IMAGE_MISSING");
+          this.room.rounds = []; this.room.stageNo = 1; this.startDrawing(); break;
         case "member.kick": {
           this.requireHost(member.id);
           if (command.payload.participantId === member.id) throw new CommandError("INVALID_PAYLOAD");
@@ -136,10 +205,11 @@ export class Room extends DurableObject<Env> {
           if(member.drawingSubmitted)break;
           const input=DrawingSubmissionSchema.parse(command.payload);
           const slots=input.differences.slice(0,this.room.settings.differencesPerPlayer).map(d=>d.strokes);
-          const validations=validateDifferenceSlots(await this.sourcePixels(),slots);
+          const original=this.room.settings.deckId==="original"?this.room.originalImage:undefined;
+          const validations=original?validateOriginalSlots(original.width,original.height,slots):validateDifferenceSlots(await this.sourcePixels(),slots);
           for(let index=0;index<slots.length;index++){
             const strokes=slots[index]!,visible=validations[index]?.visible;if(!validations[index]?.valid||!visible)continue;
-            this.room.differences.push({id:crypto.randomUUID(),creatorId:member.id,strokes,hitRegion:buildHitRegion({strokes}),visible,points:areaPoints(visible.ratio)});
+            this.room.differences.push({id:crypto.randomUUID(),creatorId:member.id,strokes,hitRegion:buildHitRegion({strokes}),visible,points:original?{finder:GAME_DEFAULTS.pointsForFinder,unfound:GAME_DEFAULTS.pointsForUnfoundCreator}:areaPoints(visible.ratio)});
           }
           member.drawingSubmitted=true;
           if(this.members().filter(p=>p.connected).every(p=>p.drawingSubmitted)){
@@ -153,12 +223,18 @@ export class Room extends DurableObject<Env> {
         case "phase.advance":
           this.requireHost(member.id);
           if (this.room.phase === "DRAWING") this.startDrawingFinalizing();
-          else if (this.room.phase === "ANSWERING") this.finishGame();
+          else if (this.room.phase === "ANSWERING") this.finishRound();
           else throw new CommandError("INVALID_PHASE");
+          break;
+        case "round.continue":
+          this.requireHost(member.id); this.requirePhase("ROUND_RESULT");
+          if (this.room.stageNo >= this.room.settings.stageCount) {
+            this.room.phase = "FINAL_RESULT"; this.room.expiresAt = new Date(Date.now() + 7200000).toISOString();
+          } else { this.room.stageNo++; this.startDrawing(); }
           break;
         case "game.rematch":
           this.requireHost(member.id); this.requirePhase("FINAL_RESULT");
-          this.room.gameNo++; this.room.phase = "LOBBY"; this.room.differences = []; this.room.gameScores = {};
+          this.room.gameNo++; this.room.stageNo = 0; this.room.phase = "LOBBY"; this.room.differences = []; this.room.rounds = [];
           delete this.room.expiresAt; delete this.room.phaseEndsAt;
           this.members().forEach(p => { p.score = 0; p.confirmed = false; delete p.answerBlockedUntil; }); break;
         case "game.terminate":
@@ -190,18 +266,18 @@ export class Room extends DurableObject<Env> {
     const pixels={width,height,rgb};this.sourceCache={url,pixels};return pixels;
   }
   private hits(x:number,y:number,d:InternalDifference) {
-    const image=IMAGES.find(image=>image.src===this.room!.imageUrl)!;
+    const image=this.room!.settings.deckId==="original"?this.room!.originalImage!:IMAGES.find(image=>image.src===this.room!.imageUrl)!;
     return d.visible?visibleHit(x,y,d.visible,AREA_RULES.sampleWidth,Math.round(AREA_RULES.sampleWidth*image.height/image.width)):hitTest({x,y,t:0},d.hitRegion);
   }
   private startDrawing() {
-    const r = this.room!; r.phase = "DRAWING"; r.imageUrl = chooseImage(r.settings.imageIds, Math.random());
-    r.gameScores = {};
+    const r = this.room!; r.phase = "DRAWING"; r.imageUrl = r.settings.deckId==="original"?r.originalImage!.url:chooseImage(r.stageNo > 1 ? r.imageUrl : undefined, Math.random(), r.settings.deckId);
+    r.roundScores = {};
     r.differences = []; this.members().forEach(p => { p.confirmed = false; p.drawingSubmitted=false; delete p.answerBlockedUntil; });
     this.deadline(r.settings.drawingSeconds);
   }
   private startCountdown() {
     delete this.room!.drawingFinalizingStartedAt;
-    if (!this.room!.differences.length || this.members().filter(p=>p.connected).length===1) { this.finishGame(); return; }
+    if (!this.room!.differences.length || this.members().filter(p=>p.connected).length===1) { this.finishRound(); return; }
     this.room!.phase = "COUNTDOWN"; this.deadline(this.room!.settings.countdownSeconds);
   }
   private startDrawingFinalizing() {
@@ -231,26 +307,23 @@ export class Room extends DurableObject<Env> {
     if (this.room!.differences.every(d => d.foundBy)) { this.room!.phase = "ANSWER_REVEAL"; this.deadline(LIMITS.markerMs / 1000); }
     return { participantId: member.id, result: "CORRECT", differenceId: found.id, at, scoreDelta:points };
   }
-  private finishGame() {
+  private finishRound() {
     const r = this.room!;
     for (const d of r.differences.filter(d => !d.foundBy)) { const creator = r.participants.find(p => p.id === d.creatorId); if (creator) { const points=d.points?.unfound??r.settings.pointsForUnfoundCreator;creator.score += points; this.recordScore(creator.id,"unfound",points); } }
-    r.phase = "FINAL_RESULT"; delete r.phaseEndsAt;
-    r.expiresAt = new Date(Date.now() + 7200000).toISOString();
+    r.phase = "ROUND_RESULT"; delete r.phaseEndsAt;
+    r.rounds = r.rounds.filter(round => round.stageNo !== r.stageNo);
+    r.rounds.push({ stageNo: r.stageNo, imageUrl: r.imageUrl, differences: r.differences.map(({ hitRegion: _, visible: _visible, ...d }) => d), scores: this.members().map(p=>({participantId:p.id,...(r.roundScores?.[p.id]??{found:0,unfound:0,penalty:0,total:0})})) });
   }
   private recordScore(id: string, kind: "found"|"unfound"|"penalty", amount: number) {
-    const scores=this.room!.gameScores??={}; const entry=scores[id]??={found:0,unfound:0,penalty:0,total:0}; entry[kind]+=amount;entry.total+=amount;
-  }
-  private scoreBreakdown() {
-    const scores = this.room!.gameScores ?? {};
-    return this.members().map(participant => ({ participantId: participant.id, ...(scores[participant.id] ?? { found: 0, unfound: 0, penalty: 0, total: 0 }) }));
+    const scores=this.room!.roundScores??={}; const entry=scores[id]??={found:0,unfound:0,penalty:0,total:0}; entry[kind]+=amount;entry.total+=amount;
   }
   private deadline(seconds: number) { this.room!.phaseEndsAt = new Date(Date.now() + seconds * 1000).toISOString(); }
   async alarm() {
     return this.serial(async () => {
+      await this.expireIfDue();
       if (!this.room) return; const r = this.room; const now = Date.now();
       if (r.expiresAt && Date.parse(r.expiresAt) <= now) {
-        for (const ws of this.sockets.keys()) ws.close(4000, "expired");
-        this.sockets.clear(); await this.ctx.storage.deleteAll(); this.room = undefined; return;
+        await this.destroy(); return;
       }
       if (r.hostTransferAt && Date.parse(r.hostTransferAt) <= now) {
         const next = this.members().filter(p => p.connected && p.id !== r.hostId).sort((a,b) => a.joinOrder-b.joinOrder)[0];
@@ -260,8 +333,8 @@ export class Room extends DurableObject<Env> {
         if (r.phase === "DRAWING") this.startDrawingFinalizing();
         else if (r.phase === "DRAWING_FINALIZING") this.startCountdown();
         else if (r.phase === "COUNTDOWN") { r.phase = "ANSWERING"; this.deadline(r.settings.answeringSeconds); }
-        else if (r.phase === "ANSWERING") this.finishGame();
-        else if (r.phase === "ANSWER_REVEAL") this.finishGame();
+        else if (r.phase === "ANSWERING") this.finishRound();
+        else if (r.phase === "ANSWER_REVEAL") this.finishRound();
       }
       await this.changed();
     });
@@ -279,6 +352,7 @@ export class Room extends DurableObject<Env> {
   private members() { return this.room!.participants.filter(p => !p.kicked); }
   private async save() {
     const r = this.room; if (!r) return;
+    if(r.originalImage)r.originalImage.expiresAt=r.expiresAt;
     await this.ctx.storage.put("room", r);
     const dates = [r.phaseEndsAt, r.hostTransferAt, r.expiresAt].filter((d): d is string => !!d).map(Date.parse);
     if (dates.length) await this.ctx.storage.setAlarm(Math.max(Date.now() + 1, Math.min(...dates)));
@@ -290,9 +364,9 @@ export class Room extends DurableObject<Env> {
   }
   private snapshot(selfId: string): RoomSnapshot {
     const r = this.room!; const hidden = r.phase === "DRAWING" || r.phase === "DRAWING_FINALIZING" || r.phase === "COUNTDOWN";
-    return { roomId: r.roomId, roomCode: r.roomCode, phase: r.phase, revision: r.revision, gameNo: r.gameNo, imageUrl: r.imageUrl, phaseEndsAt: r.phaseEndsAt, selfId, settings: r.settings,
+    return { originalImage:r.originalImage, roomId: r.roomId, roomCode: r.roomCode, phase: r.phase, revision: r.revision, gameNo: r.gameNo, stageNo: r.stageNo, stageCount: r.settings.stageCount, imageUrl: r.imageUrl, phaseEndsAt: r.phaseEndsAt, selfId, settings: r.settings,
       participants: this.members().map(p => ({ id: p.id, nickname: p.nickname, joinOrder: p.joinOrder, connected: p.connected, ready: p.ready, score: p.score, confirmed: p.confirmed, confirmedCount: this.count(p.id), answerBlockedUntil: p.answerBlockedUntil, isHost: p.id === r.hostId })),
-      differences: r.differences.filter(d => !hidden || d.creatorId === selfId).map(({ hitRegion: _, visible: _visible, ...d }) => d), scores: r.phase === "FINAL_RESULT" ? this.scoreBreakdown() : undefined };
+      differences: r.differences.filter(d => !hidden || d.creatorId === selfId).map(({ hitRegion: _, visible: _visible, ...d }) => d), rounds: r.rounds };
   }
   private send(socket: WebSocket, type: ServerEvent["type"], payload: unknown) {
     if (socket.readyState === WebSocket.OPEN) socket.send(JSON.stringify({ type, revision: this.room?.revision ?? 0, payload }));
@@ -314,7 +388,7 @@ export default {
         const roomCode = RoomCodeSchema.parse(body.roomCode); const nickname = NicknameSchema.parse(body.nickname);
         return await env.ROOMS.get(env.ROOMS.idFromName(roomCode)).fetch(new Request(url.origin + "/join", { method: "POST", body: JSON.stringify({ nickname }) }));
       }
-      const match = url.pathname.match(/^\/api\/v1\/rooms\/([A-Z2-9]{6})\/socket$/);
+      const match = url.pathname.match(/^\/api\/v1\/rooms\/([A-Z2-9]{6})\/(?:socket|original-image)$/);
       if (match) return await env.ROOMS.get(env.ROOMS.idFromName(match[1]!)).fetch(request);
       return json({ code: "NOT_FOUND" }, 404);
     } catch { return json({ code: "INVALID_PAYLOAD" }, 400); }

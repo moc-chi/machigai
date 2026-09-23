@@ -10,7 +10,10 @@ describe("translations", () => {
       for (const value of row.slice(1)) expect(placeholders(value)).toEqual(placeholders(row[2]));
     }
   });
-  it("updates language and interpolates progress without changing game data", () => {
+  it("uses a clear title for image upload failures",()=>{
+    expect(translations.map(row=>String(row[0]))).not.toContain("uploadHint");
+    expect(translate("ja","imageErrorTitle")).toBe("画像を追加できません");
+  });  it("updates language and interpolates progress without changing game data", () => {
     expect(translate("ja","progress",{n:2,total:5})).toBe("確定 2 / 5");
     expect(translate("de","progress",{n:2,total:5})).toBe("Bestätigt 2 / 5");
   });

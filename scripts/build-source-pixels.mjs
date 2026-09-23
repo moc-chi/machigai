@@ -1,7 +1,7 @@
 import sharp from "sharp";
 import { readdir, writeFile } from "node:fs/promises";
 import { fileURLToPath } from "node:url";
-import { AREA_RULES } from "../packages/shared/src/scoring.ts";
+import { AREA_RULES } from "../packages/shared/src/scoring-config.mjs";
 const directory=new URL("../apps/web/public/assets/",import.meta.url);
 for(const name of await readdir(directory)){
   if(!name.endsWith(".png")||name.endsWith("-changed.png"))continue;
