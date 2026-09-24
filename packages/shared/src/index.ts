@@ -42,7 +42,7 @@ export const GAME_DEFAULTS = {
   minPlayers: 1, maxPlayers: 10, differencesPerPlayer: 1,
   drawingSeconds: 90, answeringSeconds: 60, pointsForFinder: 100,
   pointsForUnfoundCreator: 100, missPenalty: 20, missCooldownSeconds: 3,
-  countdownSeconds: 3, zoomMin: 1, zoomMax: 6, imageIds: ["bakery"] as ImageSelection, sourceType: "standard" as "standard" | "original",
+  countdownSeconds: 3, zoomMin: 1, zoomMax: 30, imageIds: ["bakery"] as ImageSelection, sourceType: "standard" as "standard" | "original",
 } as const;
 export const LIMITS = { maxMessageBytes: 524288, maxStrokes: 100, maxPoints: 2000, markerMs: 3000, drawingFinalizeMinMs: 600, drawingFinalizeMs: 5000, minWidth: .001, maxWidth: .03 } as const;
 const ImageIdSchema = z.enum(IMAGES.map(image => image.id) as [ImageId, ...ImageId[]]);
@@ -88,9 +88,9 @@ export type Stroke = z.infer<typeof StrokeSchema>;
 export type DifferenceInput = z.infer<typeof DifferenceSchema>;
 export type Phase = "LOBBY" | "DRAWING" | "DRAWING_FINALIZING" | "COUNTDOWN" | "ANSWERING" | "ANSWER_REVEAL" | "FINAL_RESULT" | "ENDED";
 export type Participant = { id: string; nickname: string; joinOrder: number; connected: boolean; ready: boolean; score: number; isHost: boolean; confirmed: boolean; confirmedCount?: number; answerBlockedUntil?: string };
-export type Difference = { id: string; creatorId: string; strokes: Stroke[]; foundBy?: string; foundAt?: string; points?: {finder:number;unfound:number} };
+export type Difference = { id: string; creatorId: string; strokes: Stroke[]; foundBy?: string[]; foundAt?: string; points?: {finder:number;unfound:number} };
 export type ScoreBreakdown = { participantId: string; found: number; unfound: number; penalty: number; total: number };
-export type RoomSnapshot = { originalImage?: import("./original-image").OriginalImage; roomId: string; roomCode: string; phase: Phase; revision: number; gameNo: number; imageUrl: string; phaseEndsAt?: string; selfId: string; participants: Participant[]; differences: Difference[]; settings: GameSettings; scores?: ScoreBreakdown[] };
+export type RoomSnapshot = { originalImage?: import("./original-image").OriginalImage; roomId: string; roomCode: string; phase: Phase; revision: number; gameNo: number; imageUrl: string; phaseEndsAt?: string; selfId: string; participants: Participant[]; differences: Difference[]; settings: GameSettings; answerProgress?: { found: number; total: number }; scores?: ScoreBreakdown[] };
 export type AnswerFeedback = { participantId: string; result: "CORRECT" | "MISS" | "ALREADY_FOUND" | "COOLDOWN" | "OWN_DIFFERENCE"; differenceId?: string; at: string; blockedUntil?: string; scoreDelta?: number };
 export type ServerEvent =
   | { type: "state.snapshot"; revision: number; payload: RoomSnapshot }

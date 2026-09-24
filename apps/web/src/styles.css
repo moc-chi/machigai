@@ -169,3 +169,7 @@ html,body,#root{height:100%;overflow:hidden}
   .answer-phase .answer-board{display:block;height:100%;min-height:0}
   .answer-phase .answer-board>.image-board{height:100%;width:100%;margin:0}
 }
+
+/* Mobile drawing is direct manipulation, not browser text/image selection. */
+.drawing-phase,.drawing-phase *{-webkit-user-select:none;user-select:none}.drawing-phase .board-viewport{touch-action:none}
+@media(max-width:600px){.results{height:auto;min-height:100%;overflow:auto}.results .result-content{overflow:visible}.results .review{height:auto}.results .review>.compare{min-height:70dvh;overflow:visible}.results .review>.compare>.export-board{min-height:34dvh}.results .review>.compare .board-layer{min-height:0}}
