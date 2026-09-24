@@ -159,7 +159,6 @@ html,body,#root{height:100%;overflow:hidden}
 }
 
 .review>.gallery-tabs:empty{display:none}
-@media(max-width:600px){.results .review>.compare.portrait-original{grid-template-columns:repeat(2,minmax(0,1fr));grid-template-rows:minmax(0,1fr)}}
 
 /* Portrait phones compare both pictures without a reveal-prone view switch. */
 @media(max-width:600px){

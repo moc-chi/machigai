@@ -115,7 +115,7 @@ test("three players, settings, two differences, live languages and share image",
     await expect(host.getByRole("heading",{name:"最終結果"})).toBeVisible();
     await expect(host.getByRole("button",{name:"間違い探しを保存",exact:true})).toBeEnabled();
     const xPost=host.getByRole("link",{name:"Xへポスト",exact:true});await expect(xPost).toHaveAttribute("href",/twitter\.com\/intent\/tweet/);expect(new URL((await xPost.getAttribute("href"))!).searchParams.get("url")).toBe("http://127.0.0.1:5173/");
-    await expect(host.getByRole("button",{name:"画像をコピー",exact:true})).toHaveCount(3);
+    await expect(host.getByRole("button",{name:"画像をコピー",exact:true})).toHaveCount(1);
     await host.setViewportSize({width:320,height:568});await host.getByRole("button",{name:"共有",exact:true}).click();
     await expect.poll(()=>host.evaluate(()=>(window as unknown as {sharedText?:string}).sharedText)).toBe("まちがいパーティーで間違い探しをつくった！ #DifferenceParty");
     await host.setViewportSize({width:1280,height:720});
@@ -172,12 +172,13 @@ test("mobile QR and toolbar fit without horizontal scrolling",async({page,browse
   const chooserPromise=page.waitForEvent("filechooser");await page.getByRole("button",{name:"オリジナル",exact:false}).click();const chooser=await chooserPromise;
   await chooser.setFiles("apps/web/public/assets/bakery.png");
   await expect(page.getByRole("button",{name:"オリジナル",exact:false})).toHaveCount(2);
-  const originalChoice=page.getByRole("button",{name:"オリジナル",exact:false}).last();await originalChoice.click();
+  const originalChoice=page.getByRole("button",{name:"オリジナル",exact:false}).last();
   await expect(originalChoice).toHaveAttribute("aria-pressed","true");
   await expect(originalChoice.locator("img")).toHaveAttribute("src",/^blob:/);
   await expect(page.getByText("画面確認用です。まだゲームには使用されません。",{exact:true})).toHaveCount(0);
-  await page.getByRole("button",{name:"パン屋さん",exact:false}).click();
-  await expect(page.getByRole("button",{name:"パン屋さん",exact:false})).toHaveAttribute("aria-pressed","true");
+  const bakeryChoice=page.locator(".image-options > button").nth(3);
+  await bakeryChoice.click();
+  await expect(bakeryChoice).toHaveAttribute("aria-pressed","true");
   const guest=await browser.newPage();
   try{
     await enter(guest,"Guest",(await page.locator(".invite-copy strong").textContent())!);
