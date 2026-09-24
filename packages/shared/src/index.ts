@@ -90,7 +90,7 @@ export type Phase = "LOBBY" | "DRAWING" | "DRAWING_FINALIZING" | "COUNTDOWN" | "
 export type Participant = { id: string; nickname: string; joinOrder: number; connected: boolean; ready: boolean; score: number; isHost: boolean; confirmed: boolean; confirmedCount?: number; answerBlockedUntil?: string };
 export type Difference = { id: string; creatorId: string; strokes: Stroke[]; foundBy?: string[]; foundAt?: string; points?: {finder:number;unfound:number} };
 export type ScoreBreakdown = { participantId: string; found: number; unfound: number; penalty: number; total: number };
-export type RoomSnapshot = { originalImage?: import("./original-image").OriginalImage; roomId: string; roomCode: string; phase: Phase; revision: number; gameNo: number; imageUrl: string; phaseEndsAt?: string; selfId: string; participants: Participant[]; differences: Difference[]; settings: GameSettings; scores?: ScoreBreakdown[] };
+export type RoomSnapshot = { originalImage?: import("./original-image").OriginalImage; roomId: string; roomCode: string; phase: Phase; revision: number; gameNo: number; imageUrl: string; phaseEndsAt?: string; selfId: string; participants: Participant[]; differences: Difference[]; settings: GameSettings; answerProgress?: { found: number; total: number }; scores?: ScoreBreakdown[] };
 export type AnswerFeedback = { participantId: string; result: "CORRECT" | "MISS" | "ALREADY_FOUND" | "COOLDOWN" | "OWN_DIFFERENCE"; differenceId?: string; at: string; blockedUntil?: string; scoreDelta?: number };
 export type ServerEvent =
   | { type: "state.snapshot"; revision: number; payload: RoomSnapshot }
