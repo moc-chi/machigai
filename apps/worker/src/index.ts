@@ -289,10 +289,10 @@ export class Room extends DurableObject<Env> {
     const now = Date.now(); const at = new Date(now).toISOString();
     if (member.answerBlockedUntil && Date.parse(member.answerBlockedUntil) > now) return { participantId: member.id, result: "COOLDOWN", at, blockedUntil: member.answerBlockedUntil };
     const point = { ...AnswerSchema.parse(input), t: 0 };
-    const found = this.room!.differences.find(d => !d.foundBy && d.creatorId !== member.id && this.hits(point.x,point.y,d));
+    const found = this.room!.differences.find(d => !d.foundBy?.includes(member.id) && d.creatorId !== member.id && this.hits(point.x,point.y,d));
     if (!found) {
-      if (this.room!.differences.some(d => !d.foundBy && d.creatorId === member.id && this.hits(point.x,point.y,d))) return { participantId: member.id, result: "OWN_DIFFERENCE", at };
-      if (this.room!.differences.some(d => d.foundBy && this.hits(point.x,point.y,d))) return { participantId: member.id, result: "ALREADY_FOUND", at };
+      if (this.room!.differences.some(d => d.creatorId === member.id && this.hits(point.x,point.y,d))) return { participantId: member.id, result: "OWN_DIFFERENCE", at };
+      if (this.room!.differences.some(d => d.foundBy?.includes(member.id) && this.hits(point.x,point.y,d))) return { participantId: member.id, result: "ALREADY_FOUND", at };
       member.answerBlockedUntil = new Date(now + this.room!.settings.missCooldownSeconds * 1000).toISOString();
       const previousScore = member.score;
       member.score = Math.max(0, member.score - this.room!.settings.missPenalty);
@@ -300,14 +300,14 @@ export class Room extends DurableObject<Env> {
       return { participantId: member.id, result: "MISS", at, blockedUntil: member.answerBlockedUntil, scoreDelta: member.score - previousScore };
     }
     const points=found.points?.finder??this.room!.settings.pointsForFinder;
-    found.foundBy = member.id; found.foundAt = at; member.score += points;
+    found.foundBy = [...(found.foundBy??[]),member.id]; found.foundAt = at; member.score += points;
     this.recordScore(member.id, "found", points);
-    if (this.room!.differences.every(d => d.foundBy)) { this.room!.phase = "ANSWER_REVEAL"; this.deadline(LIMITS.markerMs / 1000); }
+    if (this.members().every(player=>this.room!.differences.every(d=>d.creatorId===player.id||d.foundBy?.includes(player.id)))) { this.room!.phase = "ANSWER_REVEAL"; this.deadline(LIMITS.markerMs / 1000); }
     return { participantId: member.id, result: "CORRECT", differenceId: found.id, at, scoreDelta:points };
   }
   private finishGame() {
     const r = this.room!;
-    for (const d of r.differences.filter(d => !d.foundBy)) { const creator = r.participants.find(p => p.id === d.creatorId); if (creator) { const points=d.points?.unfound??r.settings.pointsForUnfoundCreator;creator.score += points; this.recordScore(creator.id,"unfound",points); } }
+    for (const d of r.differences.filter(d => !d.foundBy?.length)) { const creator = r.participants.find(p => p.id === d.creatorId); if (creator) { const points=d.points?.unfound??r.settings.pointsForUnfoundCreator;creator.score += points; this.recordScore(creator.id,"unfound",points); } }
     r.phase = "FINAL_RESULT"; delete r.phaseEndsAt;
     r.expiresAt = new Date(Date.now() + 7200000).toISOString();
   }
@@ -363,7 +363,7 @@ export class Room extends DurableObject<Env> {
     const r = this.room!; const hidden = r.phase === "DRAWING" || r.phase === "DRAWING_FINALIZING" || r.phase === "COUNTDOWN";
     return { originalImage:r.originalImage, roomId: r.roomId, roomCode: r.roomCode, phase: r.phase, revision: r.revision, gameNo: r.gameNo, imageUrl: r.imageUrl, phaseEndsAt: r.phaseEndsAt, selfId, settings: r.settings,
       participants: this.members().map(p => ({ id: p.id, nickname: p.nickname, joinOrder: p.joinOrder, connected: p.connected, ready: p.ready, score: p.score, confirmed: p.confirmed, confirmedCount: this.count(p.id), answerBlockedUntil: p.answerBlockedUntil, isHost: p.id === r.hostId })),
-      differences: r.differences.filter(d => !hidden || d.creatorId === selfId).map(({ hitRegion: _, visible: _visible, ...d }) => d), scores:r.phase==="FINAL_RESULT"?this.members().map(p=>({participantId:p.id,...(r.gameScores?.[p.id]??{found:0,unfound:0,penalty:0,total:0})})):undefined };
+      differences: r.differences.filter(d => (!hidden || d.creatorId === selfId) && (!["ANSWERING","ANSWER_REVEAL"].includes(r.phase) || (d.creatorId !== selfId && !d.foundBy?.includes(selfId)))).map(({ hitRegion: _, visible: _visible, ...d }) => d), scores:r.phase==="FINAL_RESULT"?this.members().map(p=>({participantId:p.id,...(r.gameScores?.[p.id]??{found:0,unfound:0,penalty:0,total:0})})):undefined };
   }
   private send(socket: WebSocket, type: ServerEvent["type"], payload: unknown) {
     if (socket.readyState === WebSocket.OPEN) socket.send(JSON.stringify({ type, revision: this.room?.revision ?? 0, payload }));
