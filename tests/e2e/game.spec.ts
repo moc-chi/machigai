@@ -62,8 +62,12 @@ test("three players, settings, two differences, live languages and share image",
     expect(Math.abs(gamePanel!.height-gamePlayers!.height)).toBeLessThanOrEqual(1);
     await host.setViewportSize({width:1280,height:720});
     await host.getByLabel("1人あたりの間違い数").selectOption("2");
+    await host.getByLabel("描画時間").selectOption("45");
+    await host.getByLabel("回答時間").selectOption("90");
     await two.locator(".settings-tabs").getByRole("button",{name:"ゲーム設定",exact:true}).click();
     await expect(two.locator(".setting-labels")).toContainText("2個");
+    await expect(two.locator(".setting-labels")).toContainText("45秒");
+    await expect(two.locator(".setting-labels")).toContainText("90秒");
     for(const language of ["en","zh-CN","zh-TW","ko","de","fr","es","pt-BR","ja"]){
       await host.getByLabel("Language",{exact:true}).selectOption(language);
       await expect(host.locator("html")).toHaveAttribute("lang",language);
@@ -113,6 +117,7 @@ test("three players, settings, two differences, live languages and share image",
     await expect(two.locator(".answer-popup.miss small")).toContainText("あと 3秒");
     host.once("dialog",d=>void d.accept());await host.getByRole("button",{name:"このフェーズを終了"}).click();
     await expect(host.getByRole("heading",{name:"最終結果"})).toBeVisible();
+    await host.getByRole("button",{name:"作品",exact:true}).click();
     await expect(host.getByRole("button",{name:"間違い探しを保存",exact:true})).toBeEnabled();
     const xPost=host.getByRole("link",{name:"Xへポスト",exact:true});await expect(xPost).toHaveAttribute("href",/twitter\.com\/intent\/tweet/);expect(new URL((await xPost.getAttribute("href"))!).searchParams.get("url")).toBe("http://127.0.0.1:5173/");
     await expect(host.getByRole("button",{name:"画像をコピー",exact:true})).toHaveCount(3);
@@ -123,6 +128,7 @@ test("three players, settings, two differences, live languages and share image",
     const file=await download;expect(file.suggestedFilename()).toBe("difference-party.png");
     const pngPath=testInfo.outputPath("shared.png");await file.saveAs(pngPath);const png=await readFile(pngPath);
     expect(png.subarray(1,4).toString()).toBe("PNG");expect(png.readUInt32BE(16)).toBe(1080);expect(png.readUInt32BE(20)).toBe(1920);
+    await host.getByRole("button",{name:"順位",exact:true}).click();
     await expect(host.locator(".scores .winner")).not.toHaveCount(0);
     await expect(host.getByRole("heading",{name:"得点内訳"})).toBeVisible();
     await host.getByRole("button",{name:"作品",exact:true}).click();
@@ -262,6 +268,8 @@ test("portrait original uploads sync, fit, survive reload and play",async({page,
     await fits('.lobby-footer');await fits('.upload-status');
     await page.reload();await page.getByRole("button",{name:"ゲーム設定",exact:true}).click();
     await expect(page.getByRole("button",{name:"オリジナル",exact:false}).locator('img')).toHaveAttribute('src',/^blob:/);
+    await page.getByRole("button",{name:"オリジナル",exact:false}).last().click();
+    await expect(page.getByRole("button",{name:"オリジナル",exact:false}).last()).toHaveAttribute("aria-pressed","true");
     await page.getByRole("button",{name:"ゲームをはじめる"}).click();
     await expect(page.locator('.board-loading')).toHaveCount(0);await fits('.drawing-toolbar');await fits('.board-layer');
     await finishDrawing(page,[[.2,.3]]);await finishDrawing(guest,[[.6,.6]]);

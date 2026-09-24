@@ -28,9 +28,11 @@ export class Room extends DurableObject<Env> {
     ctx.blockConcurrencyWhile(async () => {
       this.room = await ctx.storage.get<StoredRoom>("room");
       if (this.room) {
-        const legacy=this.room.settings as GameSettings&{deckId?:string};
+        const legacy=this.room.settings as GameSettings&{deckId?:string;stageCount?:number};
         const selected=Array.isArray(legacy.imageIds)?legacy.imageIds.filter(id=>IMAGES.some(image=>image.id===id)):[];
-        this.room.settings = { ...GAME_DEFAULTS, ...this.room.settings, imageIds:(selected.length?selected:GAME_DEFAULTS.imageIds) as GameSettings["imageIds"], sourceType:legacy.sourceType==="original"||legacy.deckId==="original"&&!!this.room.originalImage?"original":"standard", minPlayers: GAME_DEFAULTS.minPlayers, missPenalty: GAME_DEFAULTS.missPenalty, missCooldownSeconds: GAME_DEFAULTS.missCooldownSeconds };
+        const {deckId:_deckId,stageCount:_stageCount,...current}=legacy;
+        this.room.settings = { ...GAME_DEFAULTS, ...current, imageIds:(selected.length?selected:GAME_DEFAULTS.imageIds) as GameSettings["imageIds"], sourceType:legacy.sourceType==="original"||legacy.deckId==="original"&&!!this.room.originalImage?"original":"standard", minPlayers: GAME_DEFAULTS.minPlayers, missPenalty: GAME_DEFAULTS.missPenalty, missCooldownSeconds: GAME_DEFAULTS.missCooldownSeconds };
+        if((this.room.phase as string)==="ROUND_RESULT")this.room.phase="FINAL_RESULT";
         this.room.gameScores ??= {};
       }
     });
