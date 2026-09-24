@@ -1,5 +1,14 @@
 import { test, expect, type Page } from "@playwright/test";
 import { readFile } from "node:fs/promises";
+test("home artwork stays inside the visible home area",async({page})=>{
+  for(const viewport of [{width:900,height:700},{width:700,height:500},{width:375,height:667}]){
+    await page.setViewportSize(viewport);await page.goto("http://127.0.0.1:5173/");
+    const hero=page.getByTestId("hero-sample");await expect.poll(()=>hero.locator("img").evaluateAll(images=>images.every(image=>(image as HTMLImageElement).complete&&(image as HTMLImageElement).naturalWidth>0))).toBe(true);
+    const layout=await page.evaluate(()=>{const home=document.querySelector<HTMLElement>(".home")!,hero=document.querySelector<HTMLElement>(".hero-sample")!;return {home:home.getBoundingClientRect().toJSON(),hero:hero.getBoundingClientRect().toJSON(),images:[...hero.querySelectorAll("img")].map(image=>image.getBoundingClientRect().toJSON())}});
+    expect(layout.hero.top).toBeGreaterThanOrEqual(layout.home.top-.5);expect(layout.hero.bottom).toBeLessThanOrEqual(layout.home.bottom+.5);
+    for(const image of layout.images){expect(image.top).toBeGreaterThanOrEqual(layout.home.top-.5);expect(image.bottom).toBeLessThanOrEqual(layout.home.bottom+.5)}
+  }
+});
 async function enter(page:Page,name:string,code?:string){
   await page.goto("http://127.0.0.1:5173/"+(code?"?room="+code:""));
   if(!code){
@@ -82,9 +91,9 @@ test("three players, settings, two differences, live languages and share image",
     await expect(host.getByTestId("confirmed-progress")).toHaveText("未確定");
     await expect(host.getByRole("button",{name:"間違い 1",exact:true})).toHaveClass(/slot-invalid/);
     await expect(host.getByRole("button",{name:"確定",exact:true})).toBeDisabled();
-    await draw(host,.15,.25);await host.getByRole("button",{name:"間違い 2",exact:true}).click();await draw(host,.15,.25);
+    await draw(host,.15,.25);await expect(host.getByRole("button",{name:"間違い 1",exact:true})).toHaveClass(/slot-valid/);await host.getByRole("button",{name:"間違い 2",exact:true}).click();
     await expect(host.getByRole("button",{name:"間違い 2",exact:true})).toHaveClass(/slot-invalid/);await expect(host.getByRole("button",{name:"確定",exact:true})).toBeDisabled();
-    await host.getByRole("button",{name:"全部消す",exact:true}).click();await draw(host,.15,.65);await expect(host.getByRole("button",{name:"確定",exact:true})).toBeEnabled();await host.getByRole("button",{name:"確定",exact:true}).click();
+    await draw(host,.15,.65);await expect(host.getByRole("button",{name:"確定",exact:true})).toBeEnabled();await host.getByRole("button",{name:"確定",exact:true}).click();
     await expect(host.getByTestId("confirmed-progress")).toHaveText("すべて確定しました");
     await finishDrawing(two,[[.45,.25],[.45,.65]]);
     await finishDrawing(three,[[.7,.25],[.7,.65]]);
@@ -290,8 +299,9 @@ test("portrait original uploads sync, fit, survive reload and play",async({page,
     await fits('.lobby-footer');await fits('.upload-status');
     await page.reload();await page.getByRole("button",{name:"ゲーム設定",exact:true}).click();
     await expect(page.getByRole("button",{name:"オリジナル",exact:false}).locator('img')).toHaveAttribute('src',/^blob:/);
-    await page.getByRole("button",{name:"オリジナル",exact:false}).last().click();
-    await expect(page.getByRole("button",{name:"オリジナル",exact:false}).last()).toHaveAttribute("aria-pressed","true");
+    const reloadedOriginal=page.getByRole("button",{name:"オリジナル",exact:false}).last();
+    if(await reloadedOriginal.getAttribute("aria-pressed")!=="true")await reloadedOriginal.click();
+    await expect(reloadedOriginal).toHaveAttribute("aria-pressed","true");
     await page.getByRole("button",{name:"ゲームをはじめる"}).click();
     await expect(page.locator('.board-loading')).toHaveCount(0);await fits('.drawing-toolbar');await fits('.board-layer');
     await finishDrawing(page,[[.2,.3]]);await finishDrawing(guest,[[.6,.6]]);
