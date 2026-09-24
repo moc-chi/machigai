@@ -912,7 +912,7 @@ export const translations = [
   ,["own","自分で描いた間違いには回答できません","You cannot answer your own difference","不能回答自己画的不同之处","不能回答自己畫的不同之處","자신이 그린 차이에는 답할 수 없어요","Du kannst deinen eigenen Unterschied nicht lösen","Vous ne pouvez pas répondre à votre propre différence","No puedes responder a tu propia diferencia","Você não pode responder à sua própria diferença"]
   ,["reveal","すべて発見！","All found!","全部找到了！","全部找到了！","모두 찾았어요!","Alles gefunden!","Tout trouvé !","¡Todo encontrado!","Tudo encontrado!"]
   ,["winner","優勝","Winner","获胜者","獲勝者","우승","Gewonnen","Victoire","Ganador","Vencedor"]
-  ,["breakdown","ラウンドの得点内訳","Round score breakdown","本轮得分明细","本回合得分明細","라운드 점수 내역","Rundenpunkte im Detail","Détail des points de la manche","Desglose de puntos de la ronda","Detalhes dos pontos da rodada"]
+  ,["breakdown","得点内訳","Score breakdown","得分明细","得分明細","점수 내역","Punkte im Detail","Détail des points","Desglose de puntos","Detalhes dos pontos"]
   ,["foundPoints","発見","Found","发现","發現","발견","Gefunden","Trouvées","Encontradas","Encontradas"]
   ,["unfoundPoints","未発見ボーナス","Unfound bonus","未被发现奖励","未被發現獎勵","미발견 보너스","Unentdeckt-Bonus","Bonus non trouvé","Bono sin descubrir","Bônus não encontrado"]
   ,["missPoints","誤回答","Wrong answers","错误回答","錯誤回答","오답","Falsche Antworten","Erreurs","Respuestas incorrectas","Respostas erradas"]
@@ -941,6 +941,12 @@ export const translations = [
   ,["imageDimensions", "画像の縦横比やサイズを確認してください（32px以上・2400万画素以下・縦横比4:1以内）。", "Check dimensions: at least 32px, up to 24MP, aspect ratio within 4:1.", "检查尺寸：至少32px、最多2400万像素、比例4:1以内。", "檢查尺寸：至少32px、最多2400萬畫素、比例4:1以內。", "32px 이상, 2400만 화소 이하, 비율 4:1 이내인지 확인하세요.", "Prüfe die Größe: ab 32 px, bis 24 MP, Seitenverhältnis max. 4:1.", "Vérifiez : 32 px minimum, 24 MP maximum, ratio limité à 4:1.", "Comprueba: mínimo 32 px, máximo 24 MP, proporción hasta 4:1.", "Verifique: mínimo 32 px, máximo 24 MP, proporção até 4:1."]
   ,["imageMissing", "画像を読み込めません。再読み込みするか、ホストに画像の選び直しをお願いしてください。", "Image unavailable. Reload or ask the host to choose it again.", "图片不可用。请刷新或让房主重新选择。", "圖片無法使用。請重新整理或讓房主重新選擇。", "이미지를 불러올 수 없어요. 새로고침하거나 호스트에게 다시 선택해 달라고 하세요.", "Bild nicht verfügbar. Lade neu oder bitte den Host um ein neues Bild.", "Image indisponible. Rechargez ou demandez à l’hôte de la choisir à nouveau.", "Imagen no disponible. Recarga o pide al anfitrión que la elija de nuevo.", "Imagem indisponível. Recarregue ou peça ao anfitrião para selecionar novamente."]
   ,["uploadRate", "少し待ってから画像を変更してください（5秒に1回・1時間20回まで）。", "Wait before changing the image (once per 5 seconds, 20 per hour).", "请稍后再试（每5秒1次，每小时20次）。", "請稍後再試（每5秒1次，每小時20次）。", "잠시 후 다시 시도하세요(5초에 1번, 시간당 20번).", "Bitte warten (alle 5 Sekunden, max. 20 pro Stunde).", "Patientez (une fois par 5 secondes, 20 par heure).", "Espera (una vez cada 5 segundos, 20 por hora).", "Aguarde (uma vez a cada 5 segundos, 20 por hora)."]
+  ,["difficultyEasy","やさしい","Easy","简单","簡單","쉬움","Leicht","Facile","Fácil","Fácil"]
+  ,["difficultyNormal","ふつう","Normal","普通","普通","보통","Normal","Normal","Normal","Normal"]
+  ,["difficultyHard","むずかしい","Hard","困难","困難","어려움","Schwer","Difficile","Difícil","Difícil"]
+  ,["difficulty","難易度","Difficulty","难度","難度","난이도","Schwierigkeit","Difficulté","Dificultad","Dificuldade"]
+  ,["allRandom","すべて選択","Select all shown","选择全部显示","選擇全部顯示","표시된 항목 모두 선택","Alle sichtbaren wählen","Tout sélectionner","Seleccionar todo","Selecionar tudo"]
+  ,["allDeselect","すべて解除","Deselect all shown","取消选择全部显示","取消選擇全部顯示","표시된 항목 모두 해제","Alle sichtbaren abwählen","Tout désélectionner","Deseleccionar todo","Desmarcar tudo"]
 ] as const;
 export type TextKey = typeof translations[number][0];
 export function translate(language: Language, key: TextKey, values: Record<string,string|number> = {}): string {

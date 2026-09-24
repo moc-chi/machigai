@@ -4,17 +4,17 @@ const waitFor=(check,timeout=12000)=>new Promise((resolve,reject)=>{const start=
 const post=async(path,body)=>{const r=await fetch(base+path,{method:"POST",headers:{"content-type":"application/json"},body:JSON.stringify(body)});assert.ok(r.ok);return r.json()};
 const clients=[];
 const connect=async(session)=>{const client={...session,events:[],state:null};client.ws=new WebSocket(base.replace(/^http/,"ws")+session.socketUrl);client.ws.onmessage=e=>{const event=JSON.parse(e.data);client.events.push(event);if(event.type==="state.snapshot")client.state=event.payload};await new Promise((resolve,reject)=>{client.ws.onopen=resolve;client.ws.onerror=reject});client.ws.send(JSON.stringify({type:"session.resume",commandId:crypto.randomUUID(),payload:{participantId:session.participantId,reconnectSecret:session.reconnectSecret}}));await waitFor(()=>client.state);clients.push(client);return client};
-const send=async(client,type,payload={},overrides={})=>{const commandId=overrides.commandId??crypto.randomUUID();client.ws.send(JSON.stringify({type,commandId,gameNo:client.state.gameNo,stageNo:client.state.stageNo,payload,...overrides}));return waitFor(()=>client.events.find(e=>(e.type==="command.ack"||e.type==="error")&&e.payload.commandId===commandId))};
+const send=async(client,type,payload={},overrides={})=>{const commandId=overrides.commandId??crypto.randomUUID();client.ws.send(JSON.stringify({type,commandId,gameNo:client.state.gameNo,payload,...overrides}));return waitFor(()=>client.events.find(e=>(e.type==="command.ack"||e.type==="error")&&e.payload.commandId===commandId))};
 const drawing=(id,x,y=.3)=>({strokes:[{id,color:"#ff6651",width:.008,points:[{x,y,t:0},{x:x+.03,y:y+.03,t:20}]}]});
 try{
   const host=await connect(await post("/api/v1/rooms",{nickname:"Host"}));
   const two=await connect(await post("/api/v1/rooms/join",{roomCode:host.roomCode,nickname:"Two"}));
   const three=await connect(await post("/api/v1/rooms/join",{roomCode:host.roomCode,nickname:"Three"}));
-  assert.equal(host.state.settings.stageCount,1);
-  assert.equal((await send(two,"settings.update",{stageCount:2})).payload.code,"NOT_HOST");
+  assert.deepEqual(host.state.settings.imageIds,["bakery"]);
+  assert.equal((await send(two,"settings.update",{imageIds:["harbor"]})).payload.code,"NOT_HOST");
   assert.equal((await send(host,"settings.update",{differencesPerPlayer:6})).payload.code,"INVALID_PAYLOAD");
-  await send(host,"settings.update",{stageCount:2,differencesPerPlayer:2,drawingSeconds:30,answeringSeconds:30,deckId:"animals"});
-  await send(host,"game.start");const firstImage=host.state.imageUrl;
+  await send(host,"settings.update",{imageIds:["bakery","harbor"],differencesPerPlayer:2,drawingSeconds:30,answeringSeconds:30,sourceType:"standard"});
+  await send(host,"game.start");
   assert.equal((await send(host,"difference.confirm",drawing("old",.1))).payload.code,"INVALID_PAYLOAD");
   const duplicate=crypto.randomUUID();
   await send(host,"drawing.ready",{},{commandId:duplicate});await send(host,"drawing.ready",{},{commandId:duplicate});
@@ -57,20 +57,9 @@ try{
   await send(winner,"answer.submit",{x:.98,y:.98});
   assert.equal(winner.state.participants.find(p=>p.id===winner.participantId).score,110,"Answers resume after cooldown");
   assert.equal((await send(two,"phase.advance")).payload.code,"NOT_HOST");
-  await send(host,"phase.advance");assert.equal(host.state.phase,"ROUND_RESULT");
-  assert.equal(host.state.rounds[0].scores.reduce((n,s)=>n+s.unfound,0),200,"Four small unfound bonuses, not finder points");
-  await send(host,"round.continue");assert.equal(host.state.stageNo,2);assert.notEqual(host.state.imageUrl,firstImage);
-  assert.equal((await send(host,"drawing.ready",{},{stageNo:1})).payload.code,"STALE_COMMAND");
-  const large=drawing("last",.1);large.strokes[0].width=.08;large.strokes[0].points[1]={x:.9,y:.3,t:20};
-  await send(host,"drawing.ready");await send(two,"drawing.ready");await send(three,"drawing.ready");await waitFor(()=>host.state.phase==="DRAWING_FINALIZING");
-  await send(host,"drawing.submit",{differences:[large]});await send(two,"drawing.submit",{differences:[]});await send(three,"drawing.submit",{differences:[]});
-  await waitFor(()=>host.state.phase==="ANSWERING");assert.deepEqual(host.state.differences[0].points,{finder:50,unfound:150},"Large visible area has reversed rewards");
-  await send(three,"answer.submit",{x:.21,y:.31});await waitFor(()=>host.state.phase==="ANSWER_REVEAL");
-  assert.equal(Date.parse(host.state.phaseEndsAt)-Date.parse(host.state.differences[0].foundAt),3000,"Final answer stays visible for three seconds");
-  assert.equal((await send(host,"phase.advance")).payload.code,"INVALID_PHASE");
-  await waitFor(()=>host.state.phase==="ROUND_RESULT");
-  await send(host,"round.continue");assert.equal(host.state.phase,"FINAL_RESULT");assert.equal(host.state.rounds.length,2);
-  for(const participant of host.state.participants){const entries=host.state.rounds.flatMap(r=>r.scores).filter(s=>s.participantId===participant.id);assert.equal(entries.reduce((sum,s)=>sum+s.total,0),participant.score);for(const s of entries)assert.equal(s.total,s.found+s.unfound+s.penalty)}
+  await send(host,"phase.advance");assert.equal(host.state.phase,"FINAL_RESULT");
+  assert.equal(host.state.scores.reduce((n,s)=>n+s.unfound,0),200,"Four small unfound bonuses, not finder points");
+  for(const participant of host.state.participants){const score=host.state.scores.find(s=>s.participantId===participant.id);assert.equal(score.total,participant.score);assert.equal(score.total,score.found+score.unfound+score.penalty)}
   await send(host,"game.rematch");assert.equal(host.state.phase,"LOBBY");assert.equal(host.state.gameNo,2);
-  console.log("PASS: 3 players, automatic settings, private multiple drawings, duplicate/stale rejection, countdown, feedback/cooldown, unique score, host skip, random rounds, gallery and rematch");
+  console.log("PASS: 3 players, illustration selection, private multiple drawings, duplicate rejection, countdown, feedback/cooldown, unique score, host finish, result and rematch");
 }finally{for(const client of clients)client.ws.close()}

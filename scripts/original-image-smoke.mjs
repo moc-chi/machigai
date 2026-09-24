@@ -35,7 +35,7 @@ try{
   assert.equal((await mutate(guest,"POST",pixels)).status,403);
   const operation=crypto.randomUUID();assert.equal((await mutate(host,"POST",pixels,"none",operation)).status,200);
   await wait(()=>a.state.originalImage&&b.state.originalImage);let meta=a.state.originalImage;
-  assert.equal(a.state.settings.deckId,"original");
+  assert.equal(a.state.settings.sourceType,"standard");
   assert.equal((await mutate(host,"POST",pixels,"none",operation)).status,200);
   assert.equal((await mutate(host,"POST",pixels,meta.id)).status,429);
   assert.equal((await mutate(host,"DELETE",undefined,"stale")).status,409);
@@ -50,6 +50,7 @@ try{
   assert.equal((await (await call("/__inspect")).json()).images,0);
   await wait(()=>!a.state.originalImage);await call("/__rate");
   assert.equal((await mutate(host,"POST",pixels)).status,200);await wait(()=>a.state.originalImage);meta=a.state.originalImage;
+  await send(a,"settings.update",{sourceType:"original"});
   await send(a,"game.start");assert.equal(a.state.imageUrl,meta.url);
   assert.equal((await mutate(host,"DELETE",undefined,meta.id)).status,400);
   await send(a,"drawing.ready");await send(b,"drawing.ready");

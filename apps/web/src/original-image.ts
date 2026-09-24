@@ -31,7 +31,7 @@ export function useOriginal(session:CreateRoomResponse|null,snapshot:RoomSnapsho
   },[session,meta?.id]);
   const url=loaded?.id===meta?.id?loaded?.url:undefined;
   const resolve=(src:string)=>meta&&src===meta.url?(url??""):src;
-  return {url,error,snapshot:snapshot?{...snapshot,imageUrl:resolve(snapshot.imageUrl),rounds:snapshot.rounds?.map(r=>({...r,imageUrl:resolve(r.imageUrl)}))}:null};
+  return {url,error,snapshot:snapshot?{...snapshot,imageUrl:resolve(snapshot.imageUrl)}:null};
 }
 export function imageDimensions(bytes:Uint8Array,mime:string):{width:number;height:number}{
   const v=new DataView(bytes.buffer,bytes.byteOffset,bytes.byteLength);

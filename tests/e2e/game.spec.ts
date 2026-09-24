@@ -27,7 +27,7 @@ async function finishDrawing(page:Page,points:Array<[number,number]>){
 }
 test("one player skips answering and reaches the round result",async({page})=>{
   await enter(page,"Solo");await expect(page.getByRole("button",{name:"ゲームをはじめる"})).toBeEnabled();await page.getByRole("button",{name:"ゲームをはじめる"}).click();const soloDialog=page.getByRole("dialog",{name:"1人でゲームを始めますか？"});await expect(soloDialog).toBeVisible();await soloDialog.getByRole("button",{name:"ゲームをはじめる",exact:true}).click();
-  await draw(page,.35,.35);await page.getByRole("button",{name:"確定",exact:true}).click();await expect(page.getByRole("heading",{name:"ラウンド結果"})).toBeVisible();await expect(page.locator(".answer-phase")).toHaveCount(0);
+  await draw(page,.35,.35);await page.getByRole("button",{name:"確定",exact:true}).click();await expect(page.getByRole("heading",{name:"最終結果"})).toBeVisible();await expect(page.locator(".answer-phase")).toHaveCount(0);
 });
 test("three players, settings, two differences, live languages and share image",async({browser},testInfo)=>{
   test.setTimeout(120000);
@@ -61,7 +61,6 @@ test("three players, settings, two differences, live languages and share image",
     expect(Math.abs(gamePlayers!.height-illustrationPlayers!.height)).toBeLessThanOrEqual(1);
     expect(Math.abs(gamePanel!.height-gamePlayers!.height)).toBeLessThanOrEqual(1);
     await host.setViewportSize({width:1280,height:720});
-    await expect(host.getByLabel("ラウンド数")).toHaveValue("1");
     await host.getByLabel("1人あたりの間違い数").selectOption("2");
     await two.locator(".settings-tabs").getByRole("button",{name:"ゲーム設定",exact:true}).click();
     await expect(two.locator(".setting-labels")).toContainText("2個");
@@ -113,7 +112,7 @@ test("three players, settings, two differences, live languages and share image",
     await expect(two.locator(".answer-popup.miss")).toContainText("不正解 -20点");
     await expect(two.locator(".answer-popup.miss small")).toContainText("あと 3秒");
     host.once("dialog",d=>void d.accept());await host.getByRole("button",{name:"このフェーズを終了"}).click();
-    await expect(host.getByRole("heading",{name:"ラウンド結果"})).toBeVisible();
+    await expect(host.getByRole("heading",{name:"最終結果"})).toBeVisible();
     await expect(host.getByRole("button",{name:"間違い探しを保存",exact:true})).toBeEnabled();
     const xPost=host.getByRole("link",{name:"Xへポスト",exact:true});await expect(xPost).toHaveAttribute("href",/twitter\.com\/intent\/tweet/);expect(new URL((await xPost.getAttribute("href"))!).searchParams.get("url")).toBe("http://127.0.0.1:5173/");
     await expect(host.getByRole("button",{name:"画像をコピー",exact:true})).toHaveCount(3);
@@ -124,10 +123,8 @@ test("three players, settings, two differences, live languages and share image",
     const file=await download;expect(file.suggestedFilename()).toBe("difference-party.png");
     const pngPath=testInfo.outputPath("shared.png");await file.saveAs(pngPath);const png=await readFile(pngPath);
     expect(png.subarray(1,4).toString()).toBe("PNG");expect(png.readUInt32BE(16)).toBe(1080);expect(png.readUInt32BE(20)).toBe(1920);
-    await host.getByRole("button",{name:"最終結果を見る"}).click();
-    await expect(host.getByRole("heading",{name:"最終結果"})).toBeVisible();
     await expect(host.locator(".scores .winner")).not.toHaveCount(0);
-    await expect(host.getByRole("heading",{name:"ラウンドの得点内訳"})).toBeVisible();
+    await expect(host.getByRole("heading",{name:"得点内訳"})).toBeVisible();
     await host.getByRole("button",{name:"作品",exact:true}).click();
     await expect(host.getByRole("button",{name:"すべて",exact:true})).toHaveAttribute("aria-pressed","true");
     await expect(host.getByRole("checkbox",{name:"間違いの箇所をマーク"})).toBeChecked();
@@ -167,19 +164,20 @@ test("mobile QR and toolbar fit without horizontal scrolling",async({page,browse
   const qr=await page.locator(".real-qr").boundingBox();expect(qr!.x+qr!.width).toBeLessThanOrEqual(320);
   await page.getByRole("button",{name:"閉じる",exact:true}).click();
   await page.getByRole("button",{name:"ゲーム設定",exact:true}).click();
-  await expect(page.locator(".lobby-settings .series-options img")).toHaveCount(2);
-  await expect(page.locator(".dummy-genre")).toHaveCount(8);
-  expect(await page.locator(".series-scroll").evaluate(node=>({overflow:getComputedStyle(node).overflowY,scroll:node.scrollHeight,client:node.clientHeight}))).toMatchObject({overflow:"auto"});
-  expect(await page.locator(".series-scroll").evaluate(node=>node.scrollHeight>node.clientHeight)).toBe(true);
-  await expect.poll(()=>page.locator(".lobby-settings .series-options img").evaluateAll(images=>images.every(image=>(image as HTMLImageElement).complete&&(image as HTMLImageElement).naturalWidth>0))).toBe(true);
+  await expect(page.locator(".lobby-settings .image-options img")).toHaveCount(32);
+  expect(await page.locator(".image-scroll").evaluate(node=>({overflow:getComputedStyle(node).overflowY,scroll:node.scrollHeight,client:node.clientHeight}))).toMatchObject({overflow:"auto"});
+  expect(await page.locator(".image-scroll").evaluate(node=>node.scrollHeight>node.clientHeight)).toBe(true);
+  await expect.poll(()=>page.locator(".lobby-settings .image-options img").evaluateAll(images=>images.every(image=>(image as HTMLImageElement).complete&&(image as HTMLImageElement).naturalWidth>0))).toBe(true);
   expect(await page.evaluate(()=>document.documentElement.scrollWidth)).toBeLessThanOrEqual(320);
   const chooserPromise=page.waitForEvent("filechooser");await page.getByRole("button",{name:"オリジナル",exact:false}).click();const chooser=await chooserPromise;
   await chooser.setFiles("apps/web/public/assets/bakery.png");
-  await expect(page.getByRole("button",{name:"オリジナル",exact:false})).toHaveAttribute("aria-pressed","true");
-  await expect(page.getByRole("button",{name:"オリジナル",exact:false}).locator("img")).toHaveAttribute("src",/^blob:/);
+  await expect(page.getByRole("button",{name:"オリジナル",exact:false})).toHaveCount(2);
+  const originalChoice=page.getByRole("button",{name:"オリジナル",exact:false}).last();await originalChoice.click();
+  await expect(originalChoice).toHaveAttribute("aria-pressed","true");
+  await expect(originalChoice.locator("img")).toHaveAttribute("src",/^blob:/);
   await expect(page.getByText("画面確認用です。まだゲームには使用されません。",{exact:true})).toHaveCount(0);
-  await page.getByRole("button",{name:"まちの人々",exact:false}).click();
-  await expect(page.getByRole("button",{name:"まちの人々",exact:false})).toHaveAttribute("aria-pressed","true");
+  await page.getByRole("button",{name:"パン屋さん",exact:false}).click();
+  await expect(page.getByRole("button",{name:"パン屋さん",exact:false})).toHaveAttribute("aria-pressed","true");
   const guest=await browser.newPage();
   try{
     await enter(guest,"Guest",(await page.locator(".invite-copy strong").textContent())!);
@@ -276,7 +274,7 @@ test("portrait original uploads sync, fit, survive reload and play",async({page,
     for(const button of await page.locator('.answer-toolbar button').all()){const b=await button.boundingBox();expect(b!.x+b!.width).toBeLessThanOrEqual(321);expect(b!.y+b!.height).toBeLessThanOrEqual(569)}
     await page.screenshot({path:info.outputPath('portrait-answer.png')});
     page.once('dialog',d=>void d.accept());await page.getByRole('button',{name:'このフェーズを終了'}).click();
-    await expect(page.getByRole('heading',{name:'ラウンド結果'})).toBeVisible();
+    await expect(page.getByRole('heading',{name:'最終結果'})).toBeVisible();
     await page.getByRole('button',{name:'作品',exact:true}).click();
     await fits('.result-actions');await fits('.review .share-actions');
     for(const board of await page.locator('.review .board-layer').all()){
