@@ -242,10 +242,7 @@ export class Room extends DurableObject<Env> {
       this.room.processedCommands.push(key); this.room.processedCommands = this.room.processedCommands.slice(-1000);
       await this.changed();
       this.send(socket, "command.ack", { commandId: id });
-      if (feedback) {
-        if (feedback.result === "COOLDOWN" || feedback.result === "OWN_DIFFERENCE") this.send(socket, "answer.result", feedback);
-        else for (const [ws, session] of this.sockets) if (session.participantId) this.send(ws, "answer.result", feedback);
-      }
+      if (feedback) this.send(socket, "answer.result", feedback);
     } catch (error) {
       const code = error instanceof CommandError ? error.code : "INVALID_PAYLOAD";
       this.send(socket, "error", { code, message: code, commandId: id });
@@ -363,7 +360,7 @@ export class Room extends DurableObject<Env> {
     const r = this.room!; const hidden = r.phase === "DRAWING" || r.phase === "DRAWING_FINALIZING" || r.phase === "COUNTDOWN";
     return { originalImage:r.originalImage, roomId: r.roomId, roomCode: r.roomCode, phase: r.phase, revision: r.revision, gameNo: r.gameNo, imageUrl: r.imageUrl, phaseEndsAt: r.phaseEndsAt, selfId, settings: r.settings,
       participants: this.members().map(p => ({ id: p.id, nickname: p.nickname, joinOrder: p.joinOrder, connected: p.connected, ready: p.ready, score: p.score, confirmed: p.confirmed, confirmedCount: this.count(p.id), answerBlockedUntil: p.answerBlockedUntil, isHost: p.id === r.hostId })),
-      differences: r.differences.filter(d => (!hidden || d.creatorId === selfId) && (!["ANSWERING","ANSWER_REVEAL"].includes(r.phase) || (d.creatorId !== selfId && !d.foundBy?.includes(selfId)))).map(({ hitRegion: _, visible: _visible, ...d }) => d), answerProgress:["ANSWERING","ANSWER_REVEAL"].includes(r.phase)?{found:r.differences.filter(d=>d.creatorId!==selfId&&d.foundBy?.includes(selfId)).length,total:r.differences.filter(d=>d.creatorId!==selfId).length}:undefined, scores:r.phase==="FINAL_RESULT"?this.members().map(p=>({participantId:p.id,...(r.gameScores?.[p.id]??{found:0,unfound:0,penalty:0,total:0})})):undefined };
+      differences: r.differences.filter(d => (!hidden || d.creatorId === selfId) && (!["ANSWERING","ANSWER_REVEAL"].includes(r.phase) || d.creatorId !== selfId)).map(({ hitRegion: _, visible: _visible, ...d }) => { if (["ANSWERING","ANSWER_REVEAL"].includes(r.phase) && !d.foundBy?.includes(selfId)) { const { foundBy: _foundBy, foundAt: _foundAt, ...answerDifference } = d; return answerDifference; } return d; }), answerProgress:["ANSWERING","ANSWER_REVEAL"].includes(r.phase)?{found:r.differences.filter(d=>d.creatorId!==selfId&&d.foundBy?.includes(selfId)).length,total:r.differences.filter(d=>d.creatorId!==selfId).length}:undefined, scores:r.phase==="FINAL_RESULT"?this.members().map(p=>({participantId:p.id,...(r.gameScores?.[p.id]??{found:0,unfound:0,penalty:0,total:0})})):undefined };
   }
   private send(socket: WebSocket, type: ServerEvent["type"], payload: unknown) {
     if (socket.readyState === WebSocket.OPEN) socket.send(JSON.stringify({ type, revision: this.room?.revision ?? 0, payload }));
