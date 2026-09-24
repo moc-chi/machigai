@@ -30,7 +30,7 @@ export async function makeShareImage(imageUrl: string, differences: Difference[]
     ctx.restore();
   }
   ctx.strokeStyle="#ffffff30";ctx.lineWidth=2;ctx.beginPath();ctx.moveTo(60,1820);ctx.lineTo(1020,1820);ctx.stroke();
-  ctx.fillStyle="#ffc94b";ctx.textAlign="center";ctx.font='800 32px "M PLUS Rounded 1c", sans-serif';ctx.fillText("#DifferenceParty",540,1880,960);
+  ctx.fillStyle="#ffc94b";ctx.textAlign="center";ctx.font='800 32px "M PLUS Rounded 1c", sans-serif';ctx.fillText("#まちがいパーティー",540,1880,960);
   return new Promise((resolve,reject)=>canvas.toBlob(blob=>blob?resolve(blob):reject(new Error("IMAGE_EXPORT_FAILED")),"image/png"));
 }
 export function downloadImage(blob: Blob,filename="difference-party.png") {

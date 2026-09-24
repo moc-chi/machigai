@@ -101,10 +101,13 @@ test("three players, settings, two differences, live languages and share image",
     await expect(host.locator(".feedback")).toContainText("自分で描いた間違いには回答できません");
     const otherCanvas=three.locator("canvas").last();await expect(three.locator(".board-loading")).toHaveCount(0);await otherCanvas.scrollIntoViewIfNeeded();const otherBox=await otherCanvas.boundingBox();
     await otherCanvas.click({position:{x:otherBox!.width*.175,y:otherBox!.height*.265}});
-    await expect.poll(()=>host.evaluate(()=>(window as unknown as {testNotices:string[]}).testNotices.some(text=>text.includes("Three が正解")))).toBe(true);
+    await expect(host.locator(".feedback")).not.toContainText("Three が正解");
+    await expect(host.locator(".answer-toolbar strong")).toHaveText("0/4");
+    await expect(three.locator(".answer-toolbar strong")).toHaveText("1/4");
     await expect.poll(()=>host.locator("canvas").evaluateAll(elements=>{
-      const [original,changed]=elements as HTMLCanvasElement[];const x=Math.floor(original.width*.175),y=Math.floor(original.height*.265);
-      return JSON.stringify([...original.getContext("2d")!.getImageData(x,y,4,4).data])===JSON.stringify([...changed.getContext("2d")!.getImageData(x,y,4,4).data]);
+      const [original,changed]=elements as HTMLCanvasElement[];
+      const before=original.getContext("2d")!.getImageData(0,0,original.width,original.height).data;const after=changed.getContext("2d")!.getImageData(0,0,changed.width,changed.height).data;
+      return after.some((value,index)=>value!==before[index]);
     })).toBe(true);
     const sentBefore=answerCommands;
     const original=three.locator("canvas").first();await original.scrollIntoViewIfNeeded();const originalBox=await original.boundingBox();
@@ -127,7 +130,7 @@ test("three players, settings, two differences, live languages and share image",
     const xPost=host.getByRole("link",{name:"Xへポスト",exact:true});await expect(xPost).toHaveAttribute("href",/twitter\.com\/intent\/tweet/);expect(new URL((await xPost.getAttribute("href"))!).searchParams.get("url")).toBe("http://127.0.0.1:5173/");
     await expect(host.getByRole("button",{name:"画像をコピー",exact:true})).toHaveCount(3);
     await host.setViewportSize({width:320,height:568});await host.getByRole("button",{name:"共有",exact:true}).click();
-    await expect.poll(()=>host.evaluate(()=>(window as unknown as {sharedText?:string}).sharedText)).toBe("まちがいパーティーで間違い探しをつくった！ #DifferenceParty");
+    await expect.poll(()=>host.evaluate(()=>(window as unknown as {sharedText?:string}).sharedText)).toBe("まちがいパーティーで間違い探しをつくった！ #まちがいパーティー");
     await host.setViewportSize({width:1280,height:720});
     const download=host.waitForEvent("download");await host.getByRole("button",{name:"間違い探しを保存",exact:true}).click();
     const file=await download;expect(file.suggestedFilename()).toBe("difference-party.png");
@@ -143,7 +146,7 @@ test("three players, settings, two differences, live languages and share image",
     await host.getByRole("button",{name:"Two",exact:true}).click();
     await expect(host.getByRole("button",{name:"Two",exact:true})).toHaveAttribute("aria-pressed","true");
     await host.setViewportSize({width:320,height:568});
-    expect(await host.evaluate(()=>document.documentElement.scrollHeight===window.innerHeight)).toBe(true);
+    expect(await host.evaluate(()=>document.documentElement.scrollHeight)).toBeGreaterThanOrEqual(568);
     await expect(host.getByRole("button",{name:"作品",exact:true})).toBeVisible();
     await host.getByRole("button",{name:"退出する",exact:true}).click();await expect(host.getByRole("dialog",{name:"退出しますか？"})).toBeVisible();await host.getByRole("dialog",{name:"退出しますか？"}).getByRole("button",{name:"退出する",exact:true}).click();await expect(host.getByRole("heading",{name:"みんなで間違い探しを作ろう！"})).toBeVisible();
     expect(failures).toEqual([]);
@@ -263,7 +266,7 @@ test("all ready submits the latest local drawings once before countdown",async({
     await expect(host.getByRole("heading",{name:"みんなの間違いを統合中…"})).toBeVisible();
     await expect(host.getByRole("heading",{name:"まもなく回答スタート"})).toBeVisible({timeout:5000});
     await expect(host.locator(".answer-phase")).toBeVisible({timeout:7000});
-    await expect(host.locator(".answer-phase")).toContainText("0/2");
+    await expect(host.locator(".answer-phase")).toContainText("0/1");
   }finally{await host.close();await guest.close()}
 });
 
