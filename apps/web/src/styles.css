@@ -111,6 +111,7 @@ html,body,#root{height:100%;overflow:hidden}
 .lobby-players li{min-width:0;min-height:0;flex-wrap:nowrap;padding:4px;font-size:12px}
 .lobby-players strong{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .lobby-players .host-tag{font-size:0;gap:0}.lobby-players .avatar{width:24px;height:24px}
+.participant-color{display:inline-block;width:12px;height:12px;border:2px solid #fff;border-radius:50%;box-shadow:0 0 0 1px #17375e66;flex:none}
 .lobby-players li>button{width:28px;min-height:28px;padding:0}
 @media(max-width:600px){
   .app-shell>main{padding:6px 8px}.game-active>main{padding:0}

@@ -6,11 +6,11 @@ import { useText } from "./i18n";
 export type Tool = "draw" | "answer" | "move" | "pick";
 export const initialView: View = { zoom: 1, x: 0, y: 0 };
 
-export function Board({ imageUrl, imageSize, differences = [], drafts = [], view, onView, tool = "move", color = "#111111", width = .008, disabled = false, onStroke, onPick, onAnswer, marks = false, persistentMarks = false, hideFound = false, label, fullViewport = false, answerPopup }: {
+export function Board({ imageUrl, imageSize, differences = [], drafts = [], view, onView, tool = "move", color = "#111111", width = .008, disabled = false, onStroke, onPick, onAnswer, marks = false, markColors, persistentMarks = false, hideFound = false, label, fullViewport = false, answerPopup }: {
   imageUrl: string; differences?: Difference[]; drafts?: Stroke[]; view: View; onView: (view: View) => void;
   imageSize?: { width: number; height: number };
   tool?: Tool; color?: string; width?: number; disabled?: boolean; onStroke?: (stroke: Stroke) => void;
-  onPick?: (color: string) => void; onAnswer?: (x: number,y: number) => void; marks?: boolean; persistentMarks?: boolean; hideFound?: boolean; label?: string; fullViewport?: boolean; answerPopup?: {x:number;y:number;text:string;subtext?:string;result:"correct"|"miss"};
+  onPick?: (color: string) => void; onAnswer?: (x: number,y: number) => void; marks?: boolean; markColors?: Record<string,string>; persistentMarks?: boolean; hideFound?: boolean; label?: string; fullViewport?: boolean; answerPopup?: {x:number;y:number;text:string;subtext?:string;result:"correct"|"miss"};
 }) {
   const t = useText(); const viewport = useRef<HTMLDivElement>(null); const layer = useRef<HTMLDivElement>(null); const canvas = useRef<HTMLCanvasElement>(null);
   const source = useRef<HTMLImageElement | null>(null); const current = useRef<Stroke | null>(null);
@@ -28,14 +28,14 @@ export function Board({ imageUrl, imageSize, differences = [], drafts = [], view
       if (hideFound && difference.foundAt && now - Date.parse(difference.foundAt) >= LIMITS.markerMs) continue;
       if (marks && (persistentMarks || (difference.foundAt && now - Date.parse(difference.foundAt) < LIMITS.markerMs))) {
         ctx.save(); ctx.globalAlpha=.5;
-        for (const stroke of difference.strokes) drawSmoothStroke(ctx,{...stroke,color:"#24b990",width:stroke.width+.018},w,h);
+        for (const stroke of difference.strokes) drawSmoothStroke(ctx,{...stroke,color:markColors?.[difference.creatorId]??"#24b990",width:stroke.width+.018},w,h);
         ctx.restore();
       }
       for (const stroke of difference.strokes) drawSmoothStroke(ctx,stroke,w,h);
     }
     for (const stroke of drafts) drawSmoothStroke(ctx,stroke,w,h);
     if (current.current) drawSmoothStroke(ctx,current.current,w,h);
-  },[differences,drafts,marks,persistentMarks,hideFound,now]);
+  },[differences,drafts,marks,markColors,persistentMarks,hideFound,now]);
   useEffect(() => { const img=new Image(); let active=true; setLoaded(false); setImage(imageSize ?? fallbackImage); img.onload=()=>{if(active){source.current=img;setImage({width:img.naturalWidth,height:img.naturalHeight});setLoaded(true)}}; img.src=imageUrl; return()=>{active=false}; },[imageUrl,imageSize?.width,imageSize?.height]);
   useEffect(()=>{render()},[render,loaded]);
   useEffect(()=>{if(!marks||persistentMarks)return;const timer=setInterval(()=>setNow(Date.now()),200);return()=>clearInterval(timer)},[marks,persistentMarks]);
@@ -55,7 +55,7 @@ export function Board({ imageUrl, imageSize, differences = [], drafts = [], view
     moved.current=false;gesture.current={view:viewRef.current,x:e.clientX,y:e.clientY,distance:0,multi:false,pan:temporaryPan};
     if(temporaryPan)return;
     const p=point(e);if(p.x<0||p.x>1||p.y<0||p.y>1)return;
-    if(tool==="pick"&&!disabled){const img=source.current!;const sample=document.createElement("canvas");sample.width=sample.height=1;const sampleContext=sample.getContext("2d")!;sampleContext.drawImage(img,Math.min(img.naturalWidth-1,Math.floor(p.x*img.naturalWidth)),Math.min(img.naturalHeight-1,Math.floor(p.y*img.naturalHeight)),1,1,0,0,1,1);const rgb=sampleContext.getImageData(0,0,1,1).data;onPick?.("#"+[rgb[0]!,rgb[1]!,rgb[2]!].map(v=>v.toString(16).padStart(2,"0")).join(""));return}
+    if(tool==="pick"&&!disabled){const rendered=canvas.current!;const x=Math.min(rendered.width-1,Math.floor(p.x*rendered.width));const y=Math.min(rendered.height-1,Math.floor(p.y*rendered.height));const rgb=rendered.getContext("2d")!.getImageData(x,y,1,1).data;onPick?.("#"+[rgb[0]!,rgb[1]!,rgb[2]!].map(v=>v.toString(16).padStart(2,"0")).join(""));return}
     if(tool==="draw"&&!disabled){started.current=Date.now();current.current={id:commandId(),color,width,points:[{...p,t:0}]};render()}
   };
   const move=(e:React.PointerEvent<HTMLDivElement>)=>{

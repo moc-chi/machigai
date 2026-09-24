@@ -42,6 +42,9 @@ test("three players, settings, two differences, live languages and share image",
   try{
     await enter(host,"Host");const code=(await host.locator(".invite-copy strong").textContent())!;
     await enter(two,"Two",code);await enter(three,"Three",code);
+    await expect(host.locator(".lobby-players .avatar")).toHaveCount(3);
+    const participantColors=await host.locator(".lobby-players .avatar").evaluateAll(nodes=>nodes.map(node=>getComputedStyle(node).backgroundColor));
+    expect(new Set(participantColors).size).toBe(3);
     await host.getByRole("button",{name:"← 退出する",exact:true}).click();const leaveDialog=host.getByRole("dialog",{name:"退出しますか？"});await expect(leaveDialog).toBeVisible();await leaveDialog.getByRole("button",{name:"キャンセル",exact:true}).click();await expect(leaveDialog).not.toBeVisible();
     await host.setViewportSize({width:1200,height:600});
     const illustrationLobby=await host.locator(".lobby-console").boundingBox();
@@ -118,9 +121,11 @@ test("three players, settings, two differences, live languages and share image",
     host.once("dialog",d=>void d.accept());await host.getByRole("button",{name:"このフェーズを終了"}).click();
     await expect(host.getByRole("heading",{name:"最終結果"})).toBeVisible();
     await host.getByRole("button",{name:"作品",exact:true}).click();
+    const artworkColors=await host.locator(".gallery-tabs .participant-color").evaluateAll(nodes=>nodes.map(node=>getComputedStyle(node).backgroundColor));
+    expect(artworkColors).toEqual(participantColors);
     await expect(host.getByRole("button",{name:"間違い探しを保存",exact:true})).toBeEnabled();
     const xPost=host.getByRole("link",{name:"Xへポスト",exact:true});await expect(xPost).toHaveAttribute("href",/twitter\.com\/intent\/tweet/);expect(new URL((await xPost.getAttribute("href"))!).searchParams.get("url")).toBe("http://127.0.0.1:5173/");
-    await expect(host.getByRole("button",{name:"画像をコピー",exact:true})).toHaveCount(1);
+    await expect(host.getByRole("button",{name:"画像をコピー",exact:true})).toHaveCount(3);
     await host.setViewportSize({width:320,height:568});await host.getByRole("button",{name:"共有",exact:true}).click();
     await expect.poll(()=>host.evaluate(()=>(window as unknown as {sharedText?:string}).sharedText)).toBe("まちがいパーティーで間違い探しをつくった！ #DifferenceParty");
     await host.setViewportSize({width:1280,height:720});
@@ -170,6 +175,9 @@ test("mobile QR and toolbar fit without horizontal scrolling",async({page,browse
   const qr=await page.locator(".real-qr").boundingBox();expect(qr!.x+qr!.width).toBeLessThanOrEqual(320);
   await page.getByRole("button",{name:"閉じる",exact:true}).click();
   await page.getByRole("button",{name:"ゲーム設定",exact:true}).click();
+  await page.locator(".settings-tabs").getByRole("button",{name:"ゲーム設定",exact:true}).click();
+  await page.getByLabel("1人あたりの間違い数").selectOption("2");
+  await page.locator(".settings-tabs").getByRole("button",{name:"イラスト",exact:true}).click();
   await expect(page.locator(".lobby-settings .image-options img")).toHaveCount(32);
   expect(await page.locator(".image-scroll").evaluate(node=>({overflow:getComputedStyle(node).overflowY,scroll:node.scrollHeight,client:node.clientHeight}))).toMatchObject({overflow:"auto"});
   expect(await page.locator(".image-scroll").evaluate(node=>node.scrollHeight>node.clientHeight)).toBe(true);
@@ -205,6 +213,19 @@ test("mobile QR and toolbar fit without horizontal scrolling",async({page,browse
     await expect(page.locator(".board-layer")).not.toHaveAttribute("style",transformBefore!);
     await page.getByRole("button",{name:"全体表示",exact:true}).click();
     await expect(page.locator(".zoom-controls output")).toHaveText("100%");
+    const canvas=page.locator("canvas");const canvasBox=await canvas.boundingBox();
+    await page.getByLabel("太さ",{exact:true}).fill("30");
+    await page.getByLabel("色",{exact:true}).fill("#ff0000");await draw(page,.3,.3);
+    await page.getByRole("button",{name:"間違い 2",exact:true}).click();
+    await page.getByLabel("色",{exact:true}).fill("#0000ff");await draw(page,.3,.3);
+    await page.getByRole("button",{name:"間違い 1",exact:true}).click();
+    await page.getByLabel("色",{exact:true}).fill("#00ff00");
+    await page.getByRole("button",{name:"絵から色を選ぶ",exact:true}).click();
+    await canvas.click({position:{x:canvasBox!.width*.325,y:canvasBox!.height*.315}});
+    await expect(page.getByLabel("色",{exact:true})).toHaveValue("#ff0000");
+    await page.getByRole("button",{name:"全部消す",exact:true}).click();
+    await page.getByRole("button",{name:"間違い 2",exact:true}).click();await page.getByRole("button",{name:"全部消す",exact:true}).click();
+    await page.getByRole("button",{name:"間違い 1",exact:true}).click();
     const colorBefore=await page.getByLabel("色",{exact:true}).inputValue();
     await page.getByRole("button",{name:"絵から色を選ぶ",exact:true}).click();
     await expect(page.getByText("絵をタップして色を取得",{exact:true})).toBeVisible();
